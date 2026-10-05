@@ -43,6 +43,8 @@ namespace BombArena.Core
         /// <summary>Whether the tile itself is open floor (bombs and other objects are checked by the game).</summary>
         public bool IsWalkable(int x, int y) => InBounds(x, y) && this[x, y] == Tile.Floor;
 
+        internal void SetTile(int index, Tile tile) => _tiles[index] = tile;
+
         internal void DestroySoftBlock(TilePos pos)
         {
             if (this[pos] == Tile.SoftBlock)

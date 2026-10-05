@@ -16,6 +16,7 @@ public sealed class BattleScreens
         Scanning,
         Joining,
         InRoom,
+        Playing,
     }
 
     private readonly PlayerProfile _profile;
@@ -23,6 +24,8 @@ public sealed class BattleScreens
     private BluetoothTransport _bt;
     private LobbyHost _host;
     private LobbyGuest _guest;
+    private IGuestTransport _guestLink;
+    private RoundView _round;
     private Step _step = Step.Menu;
     private string _status;
     private bool _permissionsOk;
@@ -82,7 +85,16 @@ public sealed class BattleScreens
 
     private void OnJoinedHost(IGuestTransport link)
     {
+        _guestLink = link;
         _guest = new LobbyGuest(link, Me());
+        _guest.Other += m =>
+        {
+            if (Protocol.TypeOf(m) != MessageType.Start) return;
+            _guest.Detach();
+            _round = RoundView.ForGuest(new RoundGuest(_guestLink, m), _profile);
+            _step = Step.Playing;
+            _status = null;
+        };
         _guest.Changed += () =>
         {
             if (_guest.Rejection != null) _status = _guest.Rejection;
@@ -91,8 +103,21 @@ public sealed class BattleScreens
         _step = Step.InRoom;
     }
 
+    /// <summary>The host starts the round: the lobby hands its players and links to the round host.</summary>
+    private void StartRound()
+    {
+        _host.Detach();
+        ulong seed = (ulong)DateTime.UtcNow.Ticks;
+        var roundHost = new RoundHost(_bt, _host.Players, _host.GuestPeers, _host.Settings, seed);
+        _round = RoundView.ForHost(roundHost, _profile);
+        _step = Step.Playing;
+        _status = null;
+    }
+
     private void Leave()
     {
+        if (_round != null) UnityEngine.Object.Destroy(_round.gameObject);
+        _round = null;
         _host?.Detach();
         _host = null;
         _guest?.Leave();
@@ -110,6 +135,11 @@ public sealed class BattleScreens
     public void OnGUI()
     {
         float w = Screen.width, u = Ui.U;
+        if (_step == Step.Playing)
+        {
+            if (_round != null && _round.Over) DrawResult();
+            return;
+        }
         GUI.Label(new Rect(0, 3 * u, w, 10 * u), Text.Bluetooth, Ui.Title);
 
         if (_bt == null || !_bt.Available)
@@ -184,6 +214,55 @@ public sealed class BattleScreens
             GUI.DrawTexture(new Rect(r.x + u, r.y + u, 10 * u, 10 * u), PlaceholderSprites.BomberAvatar(players[i].Avatar).texture, ScaleMode.ScaleToFit);
             GUI.Label(new Rect(r.x + 13 * u, r.y, r.width - 14 * u, r.height), players[i].Nickname + (i == 0 ? "  (" + Text.HostLabel + ")" : ""), Ui.Label);
         }
-        GUI.Label(new Rect(0, 62 * u, w, 7 * u), Text.PlayersInRoom(players.Count, LobbyHost.MaxGuests + 1), Ui.Small);
+        GUI.Label(new Rect(0, 61 * u, w, 6 * u), Text.PlayersInRoom(players.Count, LobbyHost.MaxGuests + 1), Ui.Small);
+
+        // Settings: the host changes them, guests see them.
+        float y = 67 * u, bw = w * 0.2f;
+        GUI.enabled = isHost;
+        if (GUI.Button(new Rect(w * 0.08f, y, bw, 8 * u), Text.ArenaSize(settings.Width, settings.Height), Ui.SmallButton) && isHost)
+            _host.ChangeSettings(NextSize(settings));
+        if (GUI.Button(new Rect(w * 0.08f + bw + u, y, bw, 8 * u), Text.RoundTime(settings.TimeLimitSeconds), Ui.SmallButton) && isHost)
+            _host.ChangeSettings(NextTime(settings));
+        GUI.enabled = true;
+
+        if (isHost)
+        {
+            GUI.enabled = players.Count >= 2;
+            if (GUI.Button(new Rect(w * 0.7f, y, w * 0.22f, 8 * u), Text.StartRound, Ui.Button)) StartRound();
+            GUI.enabled = true;
+            if (players.Count < 2) _status = Text.NeedAnotherPlayer;
+            else if (_status == Text.NeedAnotherPlayer || _status == Text.WaitingForPlayers) _status = null;
+        }
+    }
+
+    // Arena sizes cycle through odd widths 19–27 and odd heights 9–15.
+    private static RoundSettings NextSize(RoundSettings s)
+    {
+        var n = s.Clone();
+        n.Height += 2;
+        if (n.Height > Arena.MaxHeight)
+        {
+            n.Height = Arena.MinHeight;
+            n.Width = n.Width + 2 > Arena.MaxWidth ? Arena.MinWidth : n.Width + 2;
+        }
+        return n;
+    }
+
+    private static RoundSettings NextTime(RoundSettings s)
+    {
+        var n = s.Clone();
+        int i = Array.IndexOf(RoundSettings.TimeLimitChoices, s.TimeLimitSeconds);
+        n.TimeLimitSeconds = RoundSettings.TimeLimitChoices[(i + 1) % RoundSettings.TimeLimitChoices.Length];
+        return n;
+    }
+
+    private void DrawResult()
+    {
+        var col = new Ui.Column(Ui.Panel(0.5f, 0.6f));
+        string title = _round.HostLost ? Text.HostLeft
+            : _round.Winner is int w ? (w == _round.YourIndex ? Text.YouWin : Text.Winner(_round.Players[w].Nickname))
+            : Text.Draw;
+        GUI.Label(col.Next(_round.HostLost ? 16 : 12), title, _round.HostLost ? Ui.Label : Ui.Title);
+        if (GUI.Button(col.Next(11), Text.BackToMenu, Ui.Button)) Leave();
     }
 }

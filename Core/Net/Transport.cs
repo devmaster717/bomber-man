@@ -54,6 +54,9 @@ namespace BombArena.Core.Net
                 _pending.Enqueue(() => { if (g.Open) g.Deliver(message); });
         }
 
+        /// <summary>The guest end of a peer, e.g. to simulate its radio link dropping.</summary>
+        public Guest GuestFor(int peer) => _guests[peer];
+
         /// <summary>A graceful close: messages already sent are delivered first (the plugin flushes before closing too).</summary>
         public void Disconnect(int peer)
         {
