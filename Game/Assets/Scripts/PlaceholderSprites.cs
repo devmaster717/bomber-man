@@ -19,6 +19,27 @@ public static class PlaceholderSprites
     };
 
     public static Sprite Bomber => _bomber ??= Make(BomberPixel);
+    public static Sprite Bomb => _bomb ??= Make(BombPixel);
+    public static Sprite Fire => _fire ??= Make(FirePixel);
+
+    private static Sprite _bomb, _fire;
+
+    private static Color BombPixel(int x, int y)
+    {
+        float dx = x - 7.5f, dy = y - 6.5f;
+        if (x >= 9 && x <= 10 && y >= 12 && y <= 14) return Hex("#E04B2A"); // fuse
+        if (dx * dx + dy * dy <= 30f)
+            return dx < -1.5f && dy > 1.5f ? Hex("#5A5A6A") : Hex("#1E1E26");
+        return Color.clear;
+    }
+
+    private static Color FirePixel(int x, int y)
+    {
+        float dx = x - 7.5f, dy = y - 7.5f, d = dx * dx + dy * dy;
+        if (d <= 12f) return Hex("#FFF2A8");
+        if (d <= 34f) return Hex("#FFB627");
+        return new Color(0.95f, 0.35f, 0.1f, 0.9f);
+    }
 
     private delegate Color Painter(int x, int y);
 

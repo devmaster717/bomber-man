@@ -7,8 +7,8 @@
 ## Build and test
 
 - Core tests: `dotnet test BombArena.sln`
-- Android APK: `D:\Unity\6000.0.84f1\Editor\Unity.exe -batchmode -projectPath Game -buildTarget Android -executeMethod Builds.AndroidBatch -logFile <log>`. The output is `Game/Builds/BombArena.apk`; look for `BUILD RESULT` in the log. If you launch it from PowerShell, wait with `$p.WaitForExit()`, because `Start-Process -Wait` also waits for the Gradle daemon and never returns.
-- Run on LDPlayer with its own adb (`D:\LDPlayer\LDPlayer14\adb.exe`, device `emulator-5554`), then `am start -n com.bombarena.game/com.unity3d.player.UnityPlayerGameActivity`. Machine-specific gotchas are in the closing comment of issue #1.
+- Android APK: `Tools/Build-Android.ps1`. It writes `Game/Builds/BombArena.apk` and exits non-zero on failure. Underneath it runs Unity in batch mode with `-executeMethod Builds.AndroidBatch`.
+- Run on LDPlayer: `Tools/Run-LDPlayer.ps1` installs and launches the APK using LDPlayer's own adb (device `emulator-5554`). Machine-specific gotchas are in the closing comment of issue #1.
 
 ## Agent skills
 

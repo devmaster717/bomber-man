@@ -40,8 +40,14 @@ namespace BombArena.Core
 
         public bool InBounds(int x, int y) => x >= 0 && y >= 0 && x < Width && y < Height;
 
-        /// <summary>Whether a bomber can stand on the tile. Bombs will join this check in a later slice.</summary>
+        /// <summary>Whether the tile itself is open floor (bombs and other objects are checked by the game).</summary>
         public bool IsWalkable(int x, int y) => InBounds(x, y) && this[x, y] == Tile.Floor;
+
+        internal void DestroySoftBlock(TilePos pos)
+        {
+            if (this[pos] == Tile.SoftBlock)
+                _tiles[pos.Y * Width + pos.X] = Tile.Floor;
+        }
 
         public static bool IsValidSize(int width, int height) =>
             width % 2 == 1 && height % 2 == 1 &&
