@@ -1,0 +1,8 @@
+# Stage 86
+width = 25
+height = 13
+seed = 682034
+softBlocks = 60
+enemies = Walker:2, WallPasser:2, Phantom:2, Runner:2
+targetSeconds = 180
+runnersFromExit = 5

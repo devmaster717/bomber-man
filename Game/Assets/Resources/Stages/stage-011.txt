@@ -1,0 +1,8 @@
+# Stage 11
+width = 21
+height = 11
+seed = 88109
+softBlocks = 60
+enemies = Walker:3, WallPasser:1
+targetSeconds = 120
+runnersFromExit = 3

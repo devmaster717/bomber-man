@@ -1,0 +1,8 @@
+# Stage 82
+width = 25
+height = 13
+seed = 650358
+softBlocks = 60
+enemies = Walker:4, WallPasser:1, Phantom:1, Runner:1
+targetSeconds = 180
+runnersFromExit = 5

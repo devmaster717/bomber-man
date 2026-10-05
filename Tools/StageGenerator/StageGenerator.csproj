@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Writes the 100 stage data files from the difficulty table: dotnet run, with Tools/StageGenerator as the project -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\DotNet\BombArena.Core\BombArena.Core.csproj" />
+  </ItemGroup>
+</Project>

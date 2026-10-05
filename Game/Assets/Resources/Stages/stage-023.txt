@@ -1,0 +1,8 @@
+# Stage 23
+width = 21
+height = 11
+seed = 183137
+softBlocks = 60
+enemies = Walker:4, WallPasser:1
+targetSeconds = 120
+runnersFromExit = 3

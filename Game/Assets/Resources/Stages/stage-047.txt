@@ -1,0 +1,8 @@
+# Stage 47
+width = 23
+height = 13
+seed = 373193
+softBlocks = 60
+enemies = Walker:4, WallPasser:1, Phantom:1
+targetSeconds = 150
+runnersFromExit = 4

@@ -1,0 +1,8 @@
+# Stage 6
+width = 19
+height = 9
+seed = 48514
+softBlocks = 60
+enemies = Walker:4
+targetSeconds = 90
+runnersFromExit = 2

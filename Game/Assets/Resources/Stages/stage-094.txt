@@ -1,0 +1,8 @@
+# Stage 94
+width = 27
+height = 15
+seed = 745386
+softBlocks = 60
+enemies = Walker:3, WallPasser:2, Phantom:2, Runner:2
+targetSeconds = 210
+runnersFromExit = 6

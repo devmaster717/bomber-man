@@ -1,0 +1,8 @@
+# Stage 27
+width = 21
+height = 11
+seed = 214813
+softBlocks = 60
+enemies = Walker:5, WallPasser:1
+targetSeconds = 120
+runnersFromExit = 3
