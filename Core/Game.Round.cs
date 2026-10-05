@@ -24,16 +24,37 @@ namespace BombArena.Core
         /// A round for 2–3 bombers. The arena (size from the host's settings) is generated from <paramref name="seed"/>,
         /// which every phone receives, so guests build the same starting arena.
         /// </summary>
-        public static Game ForRound(int width, int height, int players, int timeLimitSeconds, ulong seed)
+        public static Game ForRound(int width, int height, int players, int timeLimitSeconds, ulong seed, bool enemiesOn = false)
         {
             if (players < 2 || players > 3) throw new ArgumentOutOfRangeException(nameof(players), "2–3 players");
             var arena = Arena.Generate(width, height, seed, players);
-            return new Game(arena, seed, Arena.SpawnTiles(width, height, players))
+            var game = new Game(arena, seed, Arena.SpawnTiles(width, height, players))
             {
                 IsRound = true,
                 SoftBlockDropPercent = RoundDropPercent,
                 TimeLimitTicks = timeLimitSeconds * Units.TicksPerSecond,
             };
+            if (enemiesOn) game.PlaceRoundEnemies(seed);
+            return game;
+        }
+
+        /// <summary>Enemies per player when the host switches enemies on.</summary>
+        public const int RoundEnemiesPerPlayer = 2;
+
+        private static readonly EnemyKind[] RoundEnemyKinds = { EnemyKind.Walker, EnemyKind.WallPasser, EnemyKind.Phantom };
+
+        /// <summary>
+        /// Two enemies per player, each a random Walker, Wall-passer or Phantom (never Runners, which would decide
+        /// rounds instead of the players), at least 5 tiles from every spawn.
+        /// </summary>
+        private void PlaceRoundEnemies(ulong seed)
+        {
+            var rng = new Rng(seed ^ 0x2B0_E7E3UL);
+            var counts = new int[RoundEnemyKinds.Length];
+            for (int i = 0; i < RoundEnemiesPerPlayer * _bombers.Count; i++) counts[rng.Next(counts.Length)]++;
+            var groups = new List<(EnemyKind, int)>();
+            for (int k = 0; k < counts.Length; k++) groups.Add((RoundEnemyKinds[k], counts[k]));
+            PlaceEnemies(seed, groups);
         }
 
         public int BombersAlive

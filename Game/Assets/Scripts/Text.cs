@@ -116,6 +116,7 @@ public static class Text
     public const string HostLeft = "The host's connection was lost. The round has ended.";
     public const string BackToMenu = "Back";
     public static string EntryFee(long fee) => $"Fee {fee}";
+    public static string Enemies(bool on) => on ? "Enemies on" : "Enemies off";
     public const string SomeoneCannotPay = "Everyone needs at least the entry fee in jewels.";
     public static string PotWon(long pot) => $"Pot: {pot} jewels";
     public static string JewelChange(long change) => change > 0 ? $"You get {change} jewels" : change == 0 ? "No jewels back" : $"{change} jewels";
