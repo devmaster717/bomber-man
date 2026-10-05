@@ -22,11 +22,25 @@ namespace BombArena.Core
 
         private readonly List<Bomber> _bombers = new List<Bomber>();
         private readonly List<Bomb> _bombs = new List<Bomb>();
+        private readonly List<Enemy> _enemies = new List<Enemy>();
         private readonly int[] _fire;
+        private readonly Rng _rng;
 
         public Arena Arena { get; }
         public IReadOnlyList<Bomber> Bombers => _bombers;
         public IReadOnlyList<Bomb> Bombs => _bombs;
+        public IReadOnlyList<Enemy> Enemies => _enemies;
+
+        public int EnemiesRemaining
+        {
+            get
+            {
+                int n = 0;
+                foreach (var e in _enemies)
+                    if (e.Alive) n++;
+                return n;
+            }
+        }
 
         /// <summary>The single-player bomber (player 0).</summary>
         public Bomber Bomber => _bombers[0];
@@ -39,20 +53,71 @@ namespace BombArena.Core
         /// <summary>Raised when a bomb explodes (for sound, vibration and effects in the view).</summary>
         public event Action<Bomb> BombExploded;
 
-        public Game(Arena arena, params TilePos[] spawns)
+        public Game(Arena arena, params TilePos[] spawns) : this(arena, 0UL, spawns)
+        {
+        }
+
+        /// <param name="rngSeed">Seeds enemy decisions, so the same inputs replay identically.</param>
+        public Game(Arena arena, ulong rngSeed, params TilePos[] spawns)
         {
             Arena = arena;
+            _rng = new Rng(rngSeed);
             _fire = new int[arena.Width * arena.Height];
             for (int i = 0; i < spawns.Length; i++)
                 _bombers.Add(new Bomber(i, spawns[i]));
         }
 
-        /// <summary>A single-player game on a freshly generated arena.</summary>
-        public static Game Create(int width, int height, ulong seed, int softBlockPercent = Arena.DefaultSoftBlockPercent)
+        /// <summary>A single-player game on a freshly generated arena, with Walkers placed from the seed.</summary>
+        public static Game Create(int width, int height, ulong seed, int softBlockPercent = Arena.DefaultSoftBlockPercent,
+            int walkers = 0)
         {
             var arena = Arena.Generate(width, height, seed, playerCount: 1, softBlockPercent);
-            return new Game(arena, Arena.SpawnTiles(width, height, 1)[0]);
+            var game = new Game(arena, seed, Arena.SpawnTiles(width, height, 1)[0]);
+            game.PlaceEnemies(seed, new[] { (EnemyKind.Walker, walkers) });
+            return game;
         }
+
+        /// <summary>Minimum distance (in tiles, along the grid) between a spawn and a starting enemy.</summary>
+        public const int EnemySpawnDistance = 5;
+
+        public Enemy AddEnemy(EnemyKind kind, TilePos tile)
+        {
+            var e = new Enemy(kind, tile);
+            _enemies.Add(e);
+            return e;
+        }
+
+        /// <summary>
+        /// Places enemies on random empty floor tiles at least <see cref="EnemySpawnDistance"/> from every
+        /// bomber's spawn. The placement depends only on the seed, so a stage looks the same on every attempt.
+        /// </summary>
+        public void PlaceEnemies(ulong seed, IEnumerable<(EnemyKind kind, int count)> groups)
+        {
+            var rng = new Rng(seed ^ 0x5EED_E4E3_1E5UL);
+            var free = new List<TilePos>();
+            for (int y = 0; y < Arena.Height; y++)
+            for (int x = 0; x < Arena.Width; x++)
+            {
+                var t = new TilePos(x, y);
+                if (Arena[t] != Tile.Floor) continue;
+                bool farEnough = true;
+                foreach (var b in _bombers)
+                    if (Math.Abs(b.Spawn.X - x) + Math.Abs(b.Spawn.Y - y) < EnemySpawnDistance) farEnough = false;
+                if (farEnough) free.Add(t);
+            }
+
+            foreach (var (kind, count) in groups)
+                for (int i = 0; i < count && free.Count > 0; i++)
+                {
+                    int pick = rng.Next(free.Count);
+                    AddEnemy(kind, free[pick]);
+                    free.RemoveAt(pick);
+                }
+        }
+
+        /// <summary>Whether an enemy may enter the tile: open floor with no bomb.</summary>
+        public bool IsOpenForEnemy(Enemy enemy, int x, int y) =>
+            Arena.IsWalkable(x, y) && BombAt(new TilePos(x, y)) == null;
 
         public bool IsBurning(TilePos tile) => _fire[tile.Y * Arena.Width + tile.X] > 0;
         public bool IsBurning(int x, int y) => _fire[y * Arena.Width + x] > 0;
@@ -89,6 +154,9 @@ namespace BombArena.Core
                 bomber.Move(input.Move, (x, y) => IsWalkableFor(bomber, x, y));
             }
             ReleaseBombsOwnersLeft();
+            foreach (var enemy in _enemies)
+                if (enemy.Alive)
+                    enemy.Move((x, y) => IsOpenForEnemy(enemy, x, y), _rng);
 
             // Bomb placement
             for (int i = 0; i < _bombers.Count && i < inputs.Length; i++)
@@ -105,10 +173,17 @@ namespace BombArena.Core
             }
             Explode(exploding);
 
-            // Deaths
+            // Deaths: fire kills bombers and enemies; touching an enemy kills a bomber.
+            foreach (var enemy in _enemies)
+                if (enemy.Alive && TouchesFire(enemy.Tile, enemy.HitboxOverlaps))
+                    enemy.Alive = false;
             foreach (var bomber in _bombers)
-                if (bomber.Alive && TouchesFire(bomber))
-                    Kill(bomber);
+            {
+                if (!bomber.Alive) continue;
+                if (TouchesFire(bomber.Tile, bomber.HitboxOverlaps)) { Kill(bomber); continue; }
+                foreach (var enemy in _enemies)
+                    if (enemy.Alive && enemy.Touches(bomber)) { Kill(bomber); break; }
+            }
 
             // Timers
             for (int i = 0; i < _fire.Length; i++)
@@ -193,12 +268,11 @@ namespace BombArena.Core
 
         private void SetFire(TilePos t) => _fire[t.Y * Arena.Width + t.X] = FireTicks;
 
-        private bool TouchesFire(Bomber bomber)
+        private bool TouchesFire(TilePos centre, Func<TilePos, bool> hitboxOverlaps)
         {
-            var c = bomber.Tile;
-            for (int y = c.Y - 1; y <= c.Y + 1; y++)
-            for (int x = c.X - 1; x <= c.X + 1; x++)
-                if (Arena.InBounds(x, y) && IsBurning(x, y) && bomber.HitboxOverlaps(new TilePos(x, y)))
+            for (int y = centre.Y - 1; y <= centre.Y + 1; y++)
+            for (int x = centre.X - 1; x <= centre.X + 1; x++)
+                if (Arena.InBounds(x, y) && IsBurning(x, y) && hitboxOverlaps(new TilePos(x, y)))
                     return true;
             return false;
         }

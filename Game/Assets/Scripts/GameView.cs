@@ -11,6 +11,7 @@ public sealed class GameView : MonoBehaviour
     [SerializeField] private int height = Arena.DefaultHeight;
     [SerializeField] private int seed = 1;
     [SerializeField, Range(0, 100)] private int softBlockPercent = Arena.DefaultSoftBlockPercent;
+    [SerializeField] private int walkers = 4;
 
     /// <summary>Most tiles shown vertically; larger arenas scroll.</summary>
     private const float MaxVisibleTilesHigh = 11f;
@@ -40,7 +41,7 @@ public sealed class GameView : MonoBehaviour
     private void StartAttempt()
     {
         _renderer?.Destroy();
-        _game = Game.Create(width, height, (ulong)seed, softBlockPercent);
+        _game = Game.Create(width, height, (ulong)seed, softBlockPercent, walkers);
         _renderer = new ArenaRenderer(_game);
         _accumulator = 0f;
         _bombQueued = _detonateQueued = false;
@@ -86,11 +87,17 @@ public sealed class GameView : MonoBehaviour
         return Direction.None;
     }
 
-    private GUIStyle _banner;
+    private GUIStyle _banner, _hud;
 
     private void OnGUI()
     {
-        if (_game == null || _game.Outcome == Outcome.Playing) return;
+        if (_game == null) return;
+        _hud ??= new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold };
+        _hud.fontSize = (int)(Screen.height * 0.04f);
+        GUI.Label(new Rect(Screen.width * 0.02f, Screen.height * 0.01f, Screen.width * 0.5f, Screen.height * 0.06f),
+            $"Enemies: {_game.EnemiesRemaining}", _hud);
+
+        if (_game.Outcome == Outcome.Playing) return;
         _banner ??= new GUIStyle(GUI.skin.box) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
         _banner.fontSize = (int)(Screen.height * 0.06f);
         float w = Screen.width * 0.5f, h = Screen.height * 0.22f;

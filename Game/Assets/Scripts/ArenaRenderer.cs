@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public sealed class ArenaRenderer
 {
-    private const int TileOrder = 0, FireOrder = 5, BombOrder = 6, BomberOrder = 10;
+    private const int TileOrder = 0, FireOrder = 5, BombOrder = 6, EnemyOrder = 9, BomberOrder = 10;
 
     private readonly Game _game;
     private readonly Transform _root;
@@ -18,6 +18,8 @@ public sealed class ArenaRenderer
     private readonly List<SpriteRenderer> _bombPool = new List<SpriteRenderer>();
     private readonly SpriteRenderer[] _bombers;
     private readonly Vector2[] _previous, _current;
+    private readonly List<SpriteRenderer> _enemies = new List<SpriteRenderer>();
+    private readonly List<Vector2> _enemyPrevious = new List<Vector2>(), _enemyCurrent = new List<Vector2>();
 
     public ArenaRenderer(Game game)
     {
@@ -46,9 +48,11 @@ public sealed class ArenaRenderer
             _bombers[i] = Make($"Bomber {i}", PlaceholderSprites.Bomber, BomberOrder, Vector2.zero);
             _previous[i] = _current[i] = WorldPosition(game.Bombers[i]);
         }
+        SyncEnemyList();
     }
 
-    public static Vector2 WorldPosition(Bomber b) => new Vector2(b.X / (float)Units.PerTile, -b.Y / (float)Units.PerTile);
+    public static Vector2 WorldPosition(Bomber b) => World(b.X, b.Y);
+    private static Vector2 World(int x, int y) => new Vector2(x / (float)Units.PerTile, -y / (float)Units.PerTile);
 
     /// <summary>Call after each core tick, so movement can be interpolated between ticks.</summary>
     public void OnTick()
@@ -57,6 +61,24 @@ public sealed class ArenaRenderer
         {
             _previous[i] = _current[i];
             _current[i] = WorldPosition(_game.Bombers[i]);
+        }
+        SyncEnemyList();
+        for (int i = 0; i < _game.Enemies.Count; i++)
+        {
+            _enemyPrevious[i] = _enemyCurrent[i];
+            _enemyCurrent[i] = World(_game.Enemies[i].X, _game.Enemies[i].Y);
+        }
+    }
+
+    // Enemies can be added during play (Runners released from the exit).
+    private void SyncEnemyList()
+    {
+        for (int i = _enemies.Count; i < _game.Enemies.Count; i++)
+        {
+            var e = _game.Enemies[i];
+            _enemies.Add(Make($"{e.Kind} {i}", PlaceholderSprites.Enemy(e.Kind), EnemyOrder, World(e.X, e.Y)));
+            _enemyPrevious.Add(World(e.X, e.Y));
+            _enemyCurrent.Add(World(e.X, e.Y));
         }
     }
 
@@ -88,6 +110,14 @@ public sealed class ArenaRenderer
             r.transform.localScale = new Vector3(pulse, pulse, 1f);
         }
         for (; b < _bombPool.Count; b++) _bombPool[b].enabled = false;
+
+        SyncEnemyList();
+        for (int i = 0; i < _enemies.Count; i++)
+        {
+            var e = _game.Enemies[i];
+            _enemies[i].enabled = e.Alive;
+            _enemies[i].transform.position = Vector2.Lerp(_enemyPrevious[i], _enemyCurrent[i], t);
+        }
 
         for (int i = 0; i < _bombers.Length; i++)
         {
