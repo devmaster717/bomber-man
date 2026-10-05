@@ -16,6 +16,8 @@ public sealed class AppController : MonoBehaviour
         Paused,
         Results,
         Settings,
+        Shop,
+        JewelPacks,
     }
 
     private const int StagesPerPage = 20;
@@ -23,6 +25,9 @@ public sealed class AppController : MonoBehaviour
     private PlayerProfile _profile;
     private IWallet _wallet;
     private StageProgress _progress;
+    private Shop _shop;
+    private string _shopMessage;
+    private Texture2D _qr;
     private Feedback _feedback;
     private ClearReward? _lastReward;
     private Page _page = Page.Home;
@@ -41,6 +46,7 @@ public sealed class AppController : MonoBehaviour
         _profile = ProfileStore.Load();
         _wallet = new LocalWallet(_profile, ProfileStore.Now, Save);
         _progress = new StageProgress(_profile, _wallet, Save);
+        _shop = new Shop(_profile, _wallet, Save);
         _feedback = Feedback.Create(_profile.MusicOn, _profile.SoundOn, _profile.VibrationOn);
         _stage = _progress.HighestUnlocked;
         _selectPage = (_stage - 1) / StagesPerPage;
@@ -158,6 +164,8 @@ public sealed class AppController : MonoBehaviour
             case Page.Paused: DrawPauseMenu(); break;
             case Page.Results: DrawResults(); break;
             case Page.Settings: DrawSettings(); break;
+            case Page.Shop: DrawShop(); break;
+            case Page.JewelPacks: DrawJewelPacks(); break;
         }
     }
 
@@ -225,8 +233,12 @@ public sealed class AppController : MonoBehaviour
         }
         GUI.enabled = false;
         GUI.Button(col.Next(11), Text.Bluetooth + Text.ComingSoon, Ui.Button);
-        GUI.Button(col.Next(11), Text.Shop + Text.ComingSoon, Ui.Button);
         GUI.enabled = true;
+        if (GUI.Button(col.Next(11), Text.Shop, Ui.Button))
+        {
+            _shopMessage = null;
+            _page = Page.Shop;
+        }
         if (GUI.Button(col.Next(11), Text.Settings, Ui.Button)) OpenSettings(Page.Home);
         if (_notice != null) GUI.Label(col.Next(10), _notice, Ui.Small);
     }
@@ -373,6 +385,104 @@ public sealed class AppController : MonoBehaviour
             if (_view != null) _view.ApplySettings(_profile);
             _page = _settingsReturn;
         }
+    }
+
+    private void DrawShop()
+    {
+        DrawWalletBar();
+        float w = Screen.width, u = Ui.U;
+        GUI.Label(new Rect(0, 7 * u, w, 9 * u), Text.Shop, Ui.Title);
+        float x = w * 0.08f, cw = w * 0.84f;
+
+        // Lives
+        if (GUI.Button(new Rect(x, 17 * u, cw * 0.48f, 9 * u), Text.LifePack(Shop.LifePackLives, Shop.LifePackPrice), Ui.Button))
+            _shopMessage = Message(_shop.BuyLifePack());
+        if (GUI.Button(new Rect(x + cw * 0.52f, 17 * u, cw * 0.48f, 9 * u), Text.JewelPacks, Ui.Button))
+            _page = Page.JewelPacks;
+
+        // Power-ups
+        GUI.Label(new Rect(x, 28 * u, cw, 6 * u), Text.PowerUps, Ui.Small);
+        var kinds = new[] { PowerUpKind.FireUp, PowerUpKind.BombUp, PowerUpKind.RemoteControl, PowerUpKind.SpeedUp };
+        for (int i = 0; i < kinds.Length; i++)
+        {
+            var r = new Rect(x + i * cw / 4 + u, 35 * u, cw / 4 - 2 * u, 12 * u);
+            GUI.enabled = _shop.CanBuy(kinds[i]);
+            GUI.DrawTexture(new Rect(r.x + u, r.y + 2 * u, 8 * u, 8 * u), PlaceholderSprites.PowerUp(kinds[i]).texture, ScaleMode.ScaleToFit);
+            if (GUI.Button(new Rect(r.x + 10 * u, r.y, r.width - 10 * u, r.height), Text.PriceTag(Text.PowerUpName(kinds[i]), Shop.PowerUpPrice(kinds[i])), Ui.Small))
+                _shopMessage = Message(_shop.BuyPowerUp(kinds[i]));
+            GUI.enabled = true;
+        }
+        GUI.Label(new Rect(x, 48 * u, cw, 6 * u), InventoryText(), Ui.Small);
+
+        // Avatars
+        GUI.Label(new Rect(x, 55 * u, cw, 6 * u), Text.Avatars, Ui.Small);
+        float size = 12 * u, gap = (cw - PlayerProfile.AvatarCount * size) / (PlayerProfile.AvatarCount - 1);
+        for (int i = 0; i < PlayerProfile.AvatarCount; i++)
+        {
+            var r = new Rect(x + i * (size + gap), 61 * u, size, size);
+            bool owned = _shop.Owns(i);
+            if (GUI.Button(r, GUIContent.none, Ui.Button) && !owned) _shopMessage = Message(_shop.BuyAvatar(i));
+            GUI.DrawTexture(new Rect(r.x + size * 0.15f, r.y + size * 0.15f, size * 0.7f, size * 0.7f), PlaceholderSprites.BomberAvatar(i).texture, ScaleMode.ScaleToFit);
+            GUI.Label(new Rect(r.x - gap / 2, r.yMax, size + gap, 5 * u), owned ? Text.Owned : Shop.AvatarPrice.ToString(), Ui.Small);
+        }
+
+        if (_shopMessage != null) GUI.Label(new Rect(0, 79 * u, w, 6 * u), _shopMessage, Ui.Label);
+        if (GUI.Button(new Rect(w * 0.4f, 87 * u, w * 0.2f, 10 * u), Text.Back, Ui.Button)) _page = Page.Home;
+    }
+
+    private string InventoryText()
+    {
+        var inv = _profile.Inventory;
+        if (inv.IsEmpty) return Text.InventoryEmpty;
+        var items = new System.Collections.Generic.List<string>();
+        if (inv.FireUp) items.Add(Text.PowerUpName(PowerUpKind.FireUp));
+        if (inv.BombUps > 0) items.Add(Text.PowerUpName(PowerUpKind.BombUp) + (inv.BombUps > 1 ? " x" + inv.BombUps : ""));
+        if (inv.RemoteControl) items.Add(Text.PowerUpName(PowerUpKind.RemoteControl));
+        if (inv.SpeedUpTicksLeft > 0) items.Add(Text.PowerUpName(PowerUpKind.SpeedUp));
+        return Text.Inventory(string.Join(", ", items));
+    }
+
+    private static string Message(PurchaseResult r) => r switch
+    {
+        PurchaseResult.Bought => Text.Bought,
+        PurchaseResult.NotEnoughJewels => Text.NotEnoughJewels,
+        _ => Text.NotForSale,
+    };
+
+    /// <summary>QR payment placeholder: shows a dummy code and credits nothing (ADR 0002).</summary>
+    private void DrawJewelPacks()
+    {
+        DrawWalletBar();
+        float w = Screen.width, u = Ui.U;
+        GUI.Label(new Rect(0, 7 * u, w, 9 * u), Text.QrTitle, Ui.Title);
+        _qr ??= PlaceholderQr();
+        float size = 46 * u;
+        GUI.DrawTexture(new Rect((w - size) / 2, 18 * u, size, size), _qr, ScaleMode.ScaleToFit);
+        GUI.Label(new Rect(w * 0.15f, 66 * u, w * 0.7f, 10 * u), Text.QrPlaceholder, Ui.Small);
+        GUI.Label(new Rect(0, 77 * u, w, 6 * u), Text.QrPacks, Ui.Small);
+        if (GUI.Button(new Rect(w * 0.4f, 87 * u, w * 0.2f, 10 * u), Text.Back, Ui.Button)) _page = Page.Shop;
+    }
+
+    private static Texture2D PlaceholderQr()
+    {
+        const int n = 25;
+        var t = new Texture2D(n, n, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point };
+        var rng = new System.Random(2026);
+        bool Finder(int x, int y, int ox, int oy)
+        {
+            int dx = x - ox, dy = y - oy;
+            if (dx < 0 || dy < 0 || dx > 6 || dy > 6) return false;
+            return dx == 0 || dy == 0 || dx == 6 || dy == 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4);
+        }
+        for (int y = 0; y < n; y++)
+        for (int x = 0; x < n; x++)
+        {
+            bool inFinderArea = (x < 8 && y < 8) || (x > n - 9 && y < 8) || (x < 8 && y > n - 9);
+            bool dark = inFinderArea ? Finder(x, y, 0, 0) || Finder(x, y, n - 7, 0) || Finder(x, y, 0, n - 7) : rng.Next(2) == 0;
+            t.SetPixel(x, y, dark ? Color.black : Color.white);
+        }
+        t.Apply();
+        return t;
     }
 
     private static bool Toggle(Rect r, string label, bool value)

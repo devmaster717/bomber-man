@@ -60,6 +60,30 @@ public static class Text
     public const string PlayAgain = "Play again";
     public const string StageSelect = "Stage select";
 
+    // Shop
+    public static string LifePack(int lives, long price) => $"{lives} lives - {price}";
+    public const string Buy = "Buy";
+    public const string PowerUps = "Power-ups (used at the start of your next stage or round)";
+    public static string PowerUpName(BombArena.Core.PowerUpKind k) => k switch
+    {
+        BombArena.Core.PowerUpKind.FireUp => "Fire Up",
+        BombArena.Core.PowerUpKind.BombUp => "Bomb Up",
+        BombArena.Core.PowerUpKind.RemoteControl => "Remote",
+        _ => "Speed Up",
+    };
+    public static string PriceTag(string name, long price) => $"{name}  {price}";
+    public static string Inventory(string items) => $"In your inventory: {items}";
+    public const string InventoryEmpty = "Your inventory is empty.";
+    public const string Avatars = "Avatars";
+    public const string Owned = "owned";
+    public const string JewelPacks = "Jewel packs (QR payment)";
+    public const string Bought = "Bought!";
+    public const string NotEnoughJewels = "Not enough jewels.";
+    public const string NotForSale = "You already have that.";
+    public const string QrTitle = "Buy jewels";
+    public const string QrPlaceholder = "Payments are coming soon. This QR code is a placeholder and does not credit any jewels.";
+    public const string QrPacks = "Pack sizes and prices: to be decided";
+
     // Settings
     public const string Music = "Music";
     public const string SoundEffects = "Sound effects";
