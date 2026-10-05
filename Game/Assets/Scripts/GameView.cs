@@ -1,80 +1,77 @@
+using System;
 using BombArena.Core;
 using UnityEngine;
 
 /// <summary>
-/// Runs the game core on its fixed 20-tick clock, feeds it input and draws its state. Holds no rules of its
-/// own (ADR 0001).
+/// Runs one stage attempt: steps the game core on its fixed 20-tick clock, feeds it input and draws its state.
+/// Holds no rules of its own (ADR 0001). Screens around it (home, pause, results) belong to <see cref="AppController"/>.
 /// </summary>
 public sealed class GameView : MonoBehaviour
 {
-    [SerializeField, Range(1, 100)] private int stageNumber = 1;
-
     /// <summary>Most tiles shown vertically; larger arenas scroll.</summary>
     private const float MaxVisibleTilesHigh = 11f;
     private const float TickSeconds = 1f / Units.TicksPerSecond;
 
-    private Game _game;
-    private int _attempt;
+    public Game Game { get; private set; }
+
+    /// <summary>While paused the clock stops and input is ignored.</summary>
+    public bool Paused { get; set; }
+
+    /// <summary>Raised once when the attempt is cleared or failed.</summary>
+    public event Action<Game> Finished;
+
     private ArenaRenderer _renderer;
     private TouchControls _controls;
     private Camera _camera;
     private float _accumulator;
-    private bool _bombQueued, _detonateQueued;
+    private bool _bombQueued, _detonateQueued, _finishedRaised;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Boot()
+    public static GameView Begin(StageSpec spec, ulong attemptSeed, PowerUpLoadout startWith)
     {
-        if (FindFirstObjectByType<GameView>() == null)
-            new GameObject("Bomb Arena").AddComponent<GameView>();
+        var view = new GameObject("Stage " + spec.Number).AddComponent<GameView>();
+        view.Game = Game.ForStage(spec, attemptSeed);
+        view.Game.ApplyLoadout(0, startWith);
+        view._controls = view.gameObject.AddComponent<TouchControls>();
+        view._renderer = new ArenaRenderer(view.Game);
+        view.SetUpCamera();
+        view.FollowCamera(view._renderer.BomberDrawPosition(0));
+        return view;
     }
 
-    private void Start()
-    {
-        Application.targetFrameRate = 60;
-        _controls = gameObject.AddComponent<TouchControls>();
-        StartAttempt();
-    }
-
-    private void StartAttempt()
-    {
-        _renderer?.Destroy();
-        _attempt++;
-        _game = Game.ForStage(StageLibrary.Load(stageNumber), attemptSeed: (ulong)System.DateTime.UtcNow.Ticks ^ (ulong)_attempt);
-        _renderer = new ArenaRenderer(_game);
-        _accumulator = 0f;
-        _bombQueued = _detonateQueued = false;
-        SetUpCamera();
-        FollowCamera(_renderer.BomberDrawPosition(0));
-    }
+    private void OnDestroy() => _renderer?.Destroy();
 
     private void Update()
     {
+        _controls.enabled = !Paused && Game.Outcome == Outcome.Playing;
+        _controls.ShowDetonate = Game.Bomber.HasRemoteControl;
+        if (Paused || Game.Outcome != Outcome.Playing)
+        {
+            _renderer.Draw(1f);
+            return;
+        }
+
         // Presses are latched until the next tick consumes them, so a quick tap is never lost.
         _bombQueued |= _controls.BombPressed || Input.GetKeyDown(KeyCode.Space);
         _detonateQueued |= _controls.DetonatePressed || Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.E);
 
-        _controls.ShowDetonate = _game.Bomber.HasRemoteControl && _game.Outcome == Outcome.Playing;
-
-        if (_game.Outcome == Outcome.Playing)
+        var move = ReadDirection();
+        _accumulator = Mathf.Min(_accumulator + Time.deltaTime, 0.25f);
+        while (_accumulator >= TickSeconds && Game.Outcome == Outcome.Playing)
         {
-            var move = ReadDirection();
-            _accumulator = Mathf.Min(_accumulator + Time.deltaTime, 0.25f);
-            while (_accumulator >= TickSeconds && _game.Outcome == Outcome.Playing)
-            {
-                _game.Step(new BomberInput(move, _bombQueued, _detonateQueued));
-                _bombQueued = _detonateQueued = false;
-                _renderer.OnTick();
-                _accumulator -= TickSeconds;
-            }
-        }
-        else if (_bombQueued || Input.GetKeyDown(KeyCode.Return))
-        {
-            StartAttempt();
-            return;
+            Game.Step(new BomberInput(move, _bombQueued, _detonateQueued));
+            _bombQueued = _detonateQueued = false;
+            _renderer.OnTick();
+            _accumulator -= TickSeconds;
         }
 
         _renderer.Draw(_accumulator / TickSeconds);
         FollowCamera(_renderer.BomberDrawPosition(0));
+
+        if (Game.Outcome != Outcome.Playing && !_finishedRaised)
+        {
+            _finishedRaised = true;
+            Finished?.Invoke(Game);
+        }
     }
 
     private Direction ReadDirection()
@@ -87,35 +84,26 @@ public sealed class GameView : MonoBehaviour
         return Direction.None;
     }
 
-    private GUIStyle _banner, _hud;
+    private GUIStyle _hud;
 
     private void OnGUI()
     {
-        if (_game == null) return;
+        if (Game == null) return;
         _hud ??= new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold };
         _hud.fontSize = (int)(Screen.height * 0.04f);
-        float elapsed = _game.Tick / (float)Units.TicksPerSecond;
-        float target = _game.TargetTicks / (float)Units.TicksPerSecond;
-        string hud = $"Enemies: {_game.EnemiesRemaining}    Time {Clock(elapsed)}";
-        if (target > 0) hud += $"    3 stars under {Clock(target)}";
-        var b = _game.Bomber;
+        long elapsed = Game.Tick / Units.TicksPerSecond;
+        long target = Game.TargetTicks / Units.TicksPerSecond;
+        string hud = $"Stage {StageNumber}    Enemies: {Game.EnemiesRemaining}    Time {Ui.Clock(elapsed)}";
+        if (target > 0) hud += $"    3 stars under {Ui.Clock(target)}";
+        var b = Game.Bomber;
         string held = (b.HasFireUp ? "  Fire Up" : "") + (b.BombUps > 0 ? $"  Bombs {b.MaxBombs}" : "") +
                       (b.HasRemoteControl ? "  Remote" : "") +
                       (b.SpeedUpTicksLeft > 0 ? $"  Speed {Mathf.CeilToInt(b.SpeedUpTicksLeft / (float)Units.TicksPerSecond)}s" : "");
-        if (held.Length > 0) hud += System.Environment.NewLine + held.Trim();
-        GUI.Label(new Rect(Screen.width * 0.02f, Screen.height * 0.01f, Screen.width * 0.9f, Screen.height * 0.12f), hud, _hud);
-
-        if (_game.Outcome == Outcome.Playing) return;
-        _banner ??= new GUIStyle(GUI.skin.box) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
-        _banner.fontSize = (int)(Screen.height * 0.06f);
-        float w = Screen.width * 0.55f, h = Screen.height * 0.3f;
-        string text = _game.Outcome == Outcome.Cleared
-            ? $"Stage clear!  Stars: {_game.Stars}/3\nTime {Clock(_game.ClearedOnTick.GetValueOrDefault() / (float)Units.TicksPerSecond)}\nPress BOMB to play again"
-            : (_game.FailReason == FailReason.TimeUp ? "Time up!" : "You died") + "\nPress BOMB to restart";
-        GUI.Box(new Rect((Screen.width - w) / 2, (Screen.height - h) / 2, w, h), text, _banner);
+        if (held.Length > 0) hud += Environment.NewLine + held.Trim();
+        GUI.Label(new Rect(Screen.width * 0.02f, Screen.height * 0.01f, Screen.width * 0.85f, Screen.height * 0.12f), hud, _hud);
     }
 
-    private static string Clock(float seconds) => $"{(int)seconds / 60}:{(int)seconds % 60:00}";
+    private int StageNumber => int.TryParse(name.Replace("Stage ", ""), out int n) ? n : 0;
 
     private void SetUpCamera()
     {
@@ -130,14 +118,14 @@ public sealed class GameView : MonoBehaviour
         _camera.backgroundColor = Color.black;
 
         // Never show space outside the walls: the view is no taller or wider than the arena.
-        float tilesHigh = Mathf.Min(MaxVisibleTilesHigh, _game.Arena.Height, _game.Arena.Width / _camera.aspect);
+        float tilesHigh = Mathf.Min(MaxVisibleTilesHigh, Game.Arena.Height, Game.Arena.Width / _camera.aspect);
         _camera.orthographicSize = tilesHigh / 2f;
     }
 
     private void FollowCamera(Vector2 target)
     {
         float halfH = _camera.orthographicSize, halfW = halfH * _camera.aspect;
-        int w = _game.Arena.Width, h = _game.Arena.Height;
+        int w = Game.Arena.Width, h = Game.Arena.Height;
 
         float x = Clamp(target.x, -0.5f + halfW, w - 0.5f - halfW, (w - 1) / 2f);
         float y = Clamp(target.y, -(h - 0.5f) + halfH, 0.5f - halfH, -(h - 1) / 2f);

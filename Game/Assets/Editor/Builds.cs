@@ -67,15 +67,26 @@ public static class Builds
         return report.summary.result == BuildResult.Succeeded;
     }
 
-    /// <summary>The main scene holds the camera and the GameView component (which builds everything else).</summary>
+    /// <summary>The main scene holds the camera and the AppController (which builds everything else).</summary>
     private static void EnsureScene()
     {
         var scene = File.Exists(ScenePath)
             ? EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single)
             : EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
-        if (Object.FindFirstObjectByType<GameView>() == null)
+        bool changed = false;
+        // GameView is created per attempt by AppController; an old copy in the scene would start a game on its own.
+        foreach (var stray in Object.FindObjectsByType<GameView>(FindObjectsSortMode.None))
         {
-            new GameObject("Bomb Arena").AddComponent<GameView>();
+            Object.DestroyImmediate(stray.gameObject);
+            changed = true;
+        }
+        if (Object.FindFirstObjectByType<AppController>() == null)
+        {
+            new GameObject("Bomb Arena").AddComponent<AppController>();
+            changed = true;
+        }
+        if (changed || !File.Exists(ScenePath))
+        {
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath)!);
             EditorSceneManager.SaveScene(scene, ScenePath);
         }
