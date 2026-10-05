@@ -10,6 +10,15 @@ namespace BombArena.Core
         WallPasser,
     }
 
+    /// <summary>A Phantom's teleport cycle: it moves while Visible and stands still while fading.</summary>
+    public enum PhantomPhase
+    {
+        Visible,
+        FadingOut,
+        Vanished,
+        FadingIn,
+    }
+
     /// <summary>A computer-controlled creature that kills a bomber on touch (spec section 6).</summary>
     public sealed class Enemy
     {
@@ -25,6 +34,33 @@ namespace BombArena.Core
         public Direction Heading { get; internal set; } = Direction.None;
 
         public int SpeedPerTick => Units.SpeedPerTick(TilesPerSecond(Kind));
+
+        /// <summary>Phantom only: where it is in its fade-and-teleport cycle.</summary>
+        public PhantomPhase Phase { get; internal set; } = PhantomPhase.Visible;
+
+        /// <summary>Phantom only: ticks left in the current fade or vanished phase.</summary>
+        public int PhaseTicksLeft { get; internal set; }
+
+        /// <summary>Phantom only: full length of the current phase, for drawing the fade.</summary>
+        public int PhaseLength { get; internal set; }
+
+        /// <summary>Phantom only: ticks until the next fade-out starts.</summary>
+        public int TeleportCountdown { get; internal set; }
+
+        /// <summary>
+        /// Whether the enemy is in the arena right now. A Phantom is absent only while fully vanished; while
+        /// fading it can be killed and kills on touch.
+        /// </summary>
+        public bool Present => Phase != PhantomPhase.Vanished;
+
+        /// <summary>How visible it is (0–1), for the view.</summary>
+        public float Opacity => Phase switch
+        {
+            PhantomPhase.FadingOut => PhaseLength == 0 ? 0f : PhaseTicksLeft / (float)PhaseLength,
+            PhantomPhase.Vanished => 0f,
+            PhantomPhase.FadingIn => PhaseLength == 0 ? 1f : 1f - PhaseTicksLeft / (float)PhaseLength,
+            _ => 1f,
+        };
 
         public Enemy(EnemyKind kind, TilePos tile)
         {
