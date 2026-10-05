@@ -23,6 +23,32 @@ public static class PlaceholderSprites
     public static Sprite Fire => _fire ??= Make(FirePixel);
 
     private static Sprite _bomb, _fire;
+    private static readonly Sprite[] _enemies = new Sprite[4];
+
+    public static Sprite Enemy(EnemyKind kind)
+    {
+        int i = (int)kind;
+        if (_enemies[i] != null) return _enemies[i];
+        var body = kind switch
+        {
+            EnemyKind.Runner => Hex("#E0383E"),
+            EnemyKind.Phantom => new Color(0.85f, 0.9f, 1f, 0.85f),
+            EnemyKind.WallPasser => Hex("#2FA37A"),
+            _ => Hex("#8E44C9"),
+        };
+        return _enemies[i] = Make((x, y) => EnemyPixel(x, y, body, kind == EnemyKind.Phantom));
+    }
+
+    private static Color EnemyPixel(int x, int y, Color body, bool ghostTail)
+    {
+        float dx = x - 7.5f, dy = y - 8f;
+        bool inBody = dx * dx + dy * dy <= 36f || (y >= 2 && y <= 8 && x >= 2 && x <= 13);
+        if (ghostTail && y < 4 && (x % 4 == 1 || x % 4 == 2)) inBody = false;
+        if (!inBody || y < 2) return Color.clear;
+        if (y >= 9 && y <= 10 && (x == 5 || x == 6 || x == 9 || x == 10)) return Color.white;
+        if (y == 9 && (x == 6 || x == 10)) return Hex("#111111");
+        return body;
+    }
 
     private static Color BombPixel(int x, int y)
     {
