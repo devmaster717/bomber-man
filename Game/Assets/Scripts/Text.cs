@@ -141,6 +141,9 @@ public static class Text
     public const string Joystick = "Joystick";
     public static string ButtonSize(int percent) => $"Button size {percent}%";
     public const string LeftHanded = "Left-handed";
+    public const string View = "View";
+    public const string View2D = "2D";
+    public const string View3D = "3D";
     public const string Nickname = "Nickname";
     public const string Avatar = "Avatar";
     public const string Back = "Back";

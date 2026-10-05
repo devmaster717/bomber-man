@@ -30,6 +30,10 @@ public static class PlaceholderSprites
         return _bombers[s] ??= Make((x, y) => BomberPixel(x, y, Hex(SlotColours[s, 0]), Hex(SlotColours[s, 1]), Hex("#FFE0C2")));
     }
 
+    /// <summary>A player slot's shirt and feet colours, shared by the 2D sprite and the 3D model.</summary>
+    public static Color SlotShirt(int slot) => Hex(SlotColours[Mathf.Clamp(slot, 0, _bombers.Length - 1), 0]);
+    public static Color SlotFeet(int slot) => Hex(SlotColours[Mathf.Clamp(slot, 0, _bombers.Length - 1), 1]);
+
     private enum Hair { Short, Long, Spiky, Bun, Cap }
 
     // The 10 avatars are headshots shown in menus and next to nicknames only; they never appear in the arena.
