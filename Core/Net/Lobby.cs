@@ -53,8 +53,27 @@ namespace BombArena.Core.Net
             Broadcast();
         }
 
-        /// <summary>Hook for the entry-fee rule (#16): return a reason to refuse a player, or null to let them in.</summary>
-        public Func<PlayerInfo, RoundSettings, string> Admission { get; set; } = (p, s) => null;
+        /// <summary>Who may join: by default anyone holding at least the entry fee. Returns a reason to refuse, or null.</summary>
+        public Func<PlayerInfo, RoundSettings, string> Admission { get; set; } =
+            (p, s) => EntryFees.CanPay(p, s.EntryFee) ? null : EntryFees.NotEnoughJewels;
+
+        /// <summary>The round can start with at least two players, all able to pay the entry fee.</summary>
+        public bool CanStart
+        {
+            get
+            {
+                if (_players.Count < 2) return false;
+                foreach (var p in _players)
+                    if (!EntryFees.CanPay(p, Settings.EntryFee)) return false;
+                return true;
+            }
+        }
+
+        /// <summary>The host's own jewels may change while waiting (e.g. a purchase); keep the room's view current.</summary>
+        public void UpdateHostJewels(long jewels)
+        {
+            _players[0].Jewels = jewels;
+        }
 
         private void OnConnected(int peer)
         {

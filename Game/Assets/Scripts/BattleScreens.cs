@@ -26,6 +26,8 @@ public sealed class BattleScreens
     private LobbyGuest _guest;
     private IGuestTransport _guestLink;
     private RoundView _round;
+    private long _fee;
+    private long _payout;
     private Step _step = Step.Menu;
     private string _status;
     private bool _permissionsOk;
@@ -91,7 +93,10 @@ public sealed class BattleScreens
         {
             if (Protocol.TypeOf(m) != MessageType.Start) return;
             _guest.Detach();
-            _round = RoundView.ForGuest(new RoundGuest(_guestLink, m), _profile);
+            var roundGuest = new RoundGuest(_guestLink, m);
+            PayFee(roundGuest.Settings.EntryFee);
+            _round = RoundView.ForGuest(roundGuest, _profile);
+            _round.Ended += Settle;
             _step = Step.Playing;
             _status = null;
         };
@@ -106,12 +111,34 @@ public sealed class BattleScreens
     /// <summary>The host starts the round: the lobby hands its players and links to the round host.</summary>
     private void StartRound()
     {
+        _host.UpdateHostJewels(_wallet.Jewels);
+        if (!_host.CanStart)
+        {
+            _status = Text.SomeoneCannotPay;
+            return;
+        }
         _host.Detach();
         ulong seed = (ulong)DateTime.UtcNow.Ticks;
         var roundHost = new RoundHost(_bt, _host.Players, _host.GuestPeers, _host.Settings, seed);
+        PayFee(_host.Settings.EntryFee);
         _round = RoundView.ForHost(roundHost, _profile);
+        _round.Ended += Settle;
         _step = Step.Playing;
         _status = null;
+    }
+
+    /// <summary>Every player, host included, pays the fee when the round starts.</summary>
+    private void PayFee(long fee)
+    {
+        _fee = _wallet.TrySpendJewels(fee) ? fee : 0;
+        _payout = 0;
+    }
+
+    /// <summary>This phone settles its own wallet: the winner takes the pot, a draw refunds, a lost host refunds nobody.</summary>
+    private void Settle()
+    {
+        _payout = EntryFees.Payout(_round.Winner, _round.YourIndex, _fee, _round.Players.Count, _round.HostLost);
+        if (_payout > 0) _wallet.AddJewels(_payout);
     }
 
     private void Leave()
@@ -223,15 +250,19 @@ public sealed class BattleScreens
             _host.ChangeSettings(NextSize(settings));
         if (GUI.Button(new Rect(w * 0.08f + bw + u, y, bw, 8 * u), Text.RoundTime(settings.TimeLimitSeconds), Ui.SmallButton) && isHost)
             _host.ChangeSettings(NextTime(settings));
+        if (GUI.Button(new Rect(w * 0.08f + 2 * (bw + u), y, bw * 0.7f, 8 * u), Text.EntryFee(settings.EntryFee), Ui.SmallButton) && isHost)
+            _host.ChangeSettings(NextFee(settings));
         GUI.enabled = true;
 
         if (isHost)
         {
-            GUI.enabled = players.Count >= 2;
-            if (GUI.Button(new Rect(w * 0.7f, y, w * 0.22f, 8 * u), Text.StartRound, Ui.Button)) StartRound();
+            _host.UpdateHostJewels(_wallet.Jewels);
+            GUI.enabled = _host.CanStart;
+            if (GUI.Button(new Rect(w * 0.72f, y, w * 0.2f, 8 * u), Text.StartRound, Ui.Button)) StartRound();
             GUI.enabled = true;
             if (players.Count < 2) _status = Text.NeedAnotherPlayer;
-            else if (_status == Text.NeedAnotherPlayer || _status == Text.WaitingForPlayers) _status = null;
+            else if (!_host.CanStart) _status = Text.SomeoneCannotPay;
+            else if (_status == Text.NeedAnotherPlayer || _status == Text.WaitingForPlayers || _status == Text.SomeoneCannotPay) _status = null;
         }
     }
 
@@ -245,6 +276,14 @@ public sealed class BattleScreens
             n.Height = Arena.MinHeight;
             n.Width = n.Width + 2 > Arena.MaxWidth ? Arena.MinWidth : n.Width + 2;
         }
+        return n;
+    }
+
+    private static RoundSettings NextFee(RoundSettings s)
+    {
+        var n = s.Clone();
+        int i = Array.IndexOf(RoundSettings.EntryFeeChoices, s.EntryFee);
+        n.EntryFee = RoundSettings.EntryFeeChoices[(i + 1) % RoundSettings.EntryFeeChoices.Length];
         return n;
     }
 
@@ -263,6 +302,11 @@ public sealed class BattleScreens
             : _round.Winner is int w ? (w == _round.YourIndex ? Text.YouWin : Text.Winner(_round.Players[w].Nickname))
             : Text.Draw;
         GUI.Label(col.Next(_round.HostLost ? 16 : 12), title, _round.HostLost ? Ui.Label : Ui.Title);
+        string money = _round.HostLost ? Text.NoRefund
+            : _round.Winner == null ? Text.FeesRefunded
+            : Text.PotWon(EntryFees.Pot(_fee, _round.Players.Count));
+        GUI.Label(col.Next(7), money, Ui.Label);
+        GUI.Label(col.Next(7), Text.JewelChange(_payout - _fee), Ui.Small);
         if (GUI.Button(col.Next(11), Text.BackToMenu, Ui.Button)) Leave();
     }
 }
