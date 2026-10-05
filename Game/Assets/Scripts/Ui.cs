@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>Shared IMGUI styles and layout helpers for the placeholder screens, sized relative to the screen.</summary>
 public static class Ui
 {
-    private static GUIStyle _button, _label, _title, _panel, _small;
+    private static GUIStyle _button, _label, _title, _panel, _small, _smallButton;
     private static int _sizedFor;
 
     public static float U => Screen.height / 100f;
@@ -17,12 +17,14 @@ public static class Ui
         _small = new GUIStyle(_label) { fontSize = (int)(3.5f * U) };
         _title = new GUIStyle(_label) { fontSize = (int)(9 * U), fontStyle = FontStyle.Bold };
         _panel = new GUIStyle(GUI.skin.box);
+        _smallButton = new GUIStyle(GUI.skin.button) { fontSize = (int)(3.5f * U) };
     }
 
     public static GUIStyle Button { get { Ensure(); return _button; } }
     public static GUIStyle Label { get { Ensure(); return _label; } }
     public static GUIStyle Small { get { Ensure(); return _small; } }
     public static GUIStyle Title { get { Ensure(); return _title; } }
+    public static GUIStyle SmallButton { get { Ensure(); return _smallButton; } }
 
     /// <summary>A dimmed full-screen backdrop with a centred panel; returns the panel's rect.</summary>
     public static Rect Panel(float widthFraction, float heightFraction)

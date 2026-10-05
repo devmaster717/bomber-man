@@ -1,0 +1,157 @@
+using System;
+using System.Collections.Generic;
+using BombArena.Core;
+using BombArena.Core.Net;
+using UnityEngine;
+
+/// <summary>
+/// Plays a Bluetooth round on this phone. On the host it runs the round (the only copy of the rules) at 20 ticks a
+/// second; on a guest it sends the player's controls and draws the state the host sends back, smoothing movement
+/// between updates. Each phone's camera follows its own bomber.
+/// </summary>
+public sealed class RoundView : MonoBehaviour
+{
+    private const float TickSeconds = 1f / Units.TicksPerSecond;
+
+    private RoundHost _host;
+    private RoundGuest _guest;
+    private ArenaRenderer _renderer;
+    private TouchControls _controls;
+    private Camera _camera;
+    private float _accumulator, _sinceUpdate;
+    private bool _bombQueued, _detonateQueued;
+
+    public Game Game => _host != null ? _host.Game : _guest.Game;
+    public int YourIndex => _host != null ? 0 : _guest.YourIndex;
+    public IReadOnlyList<PlayerInfo> Players => _host != null ? _host.Players : (IReadOnlyList<PlayerInfo>)_guest.Players;
+
+    /// <summary>True once the round has a result (or the host was lost).</summary>
+    public bool Over => _host != null ? Game.Outcome == Outcome.RoundOver : _guest.Finished || _guest.HostLost;
+
+    public int? Winner => _host != null ? Game.Winner : _guest.Winner;
+    public bool HostLost => _guest != null && _guest.HostLost;
+
+    /// <summary>Raised once when the round is over.</summary>
+    public event Action Ended;
+    private bool _endedRaised;
+
+    public static RoundView ForHost(RoundHost host, PlayerProfile settings)
+    {
+        var v = Create(settings);
+        v._host = host;
+        v.Build();
+        return v;
+    }
+
+    public static RoundView ForGuest(RoundGuest guest, PlayerProfile settings)
+    {
+        var v = Create(settings);
+        v._guest = guest;
+        v._guest.Updated += v.OnSnapshot;
+        v.Build();
+        return v;
+    }
+
+    private static RoundView Create(PlayerProfile settings)
+    {
+        var v = new GameObject("Round").AddComponent<RoundView>();
+        v._controls = v.gameObject.AddComponent<TouchControls>();
+        v._controls.UseJoystick = settings.UseJoystick;
+        v._controls.LeftHanded = settings.LeftHanded;
+        v._controls.Scale = settings.ButtonScalePercent / 100f;
+        return v;
+    }
+
+    private void Build()
+    {
+        var avatars = new int[Players.Count];
+        for (int i = 0; i < avatars.Length; i++) avatars[i] = Players[i].Avatar;
+        _renderer = new ArenaRenderer(Game, avatars);
+        _camera = ArenaCamera.SetUp(Game.Arena);
+        ArenaCamera.Follow(_camera, Game.Arena, _renderer.BomberDrawPosition(YourIndex));
+    }
+
+    private void OnDestroy()
+    {
+        _renderer?.Destroy();
+        if (_guest != null) _guest.Updated -= OnSnapshot;
+    }
+
+    private void OnSnapshot()
+    {
+        _renderer.OnTick();
+        _sinceUpdate = 0f;
+    }
+
+    private void Update()
+    {
+        var me = Game.Bombers[YourIndex];
+        _controls.enabled = !Over && me.Alive;
+        _controls.ShowDetonate = me.HasRemoteControl;
+
+        _bombQueued |= _controls.BombPressed || Input.GetKeyDown(KeyCode.Space);
+        _detonateQueued |= _controls.DetonatePressed || Input.GetKeyDown(KeyCode.E);
+        var move = _controls.enabled ? ReadDirection() : Direction.None;
+
+        if (_host != null)
+        {
+            _host.SetHostInput(move, _bombQueued, _detonateQueued);
+            _bombQueued = _detonateQueued = false;
+            _accumulator = Mathf.Min(_accumulator + Time.deltaTime, 0.25f);
+            while (_accumulator >= TickSeconds && !Over)
+            {
+                _host.Tick();
+                _renderer.OnTick();
+                _accumulator -= TickSeconds;
+            }
+            _renderer.Draw(_accumulator / TickSeconds);
+        }
+        else
+        {
+            _guest.SendInput(move, _bombQueued, _detonateQueued);
+            _bombQueued = _detonateQueued = false;
+            // Snapshots arrive about every 50 ms; draw smoothly between the last two.
+            _sinceUpdate += Time.deltaTime;
+            _renderer.Draw(Mathf.Clamp01(_sinceUpdate / TickSeconds));
+        }
+
+        ArenaCamera.Follow(_camera, Game.Arena, _renderer.BomberDrawPosition(YourIndex));
+
+        if (Over && !_endedRaised)
+        {
+            _endedRaised = true;
+            Ended?.Invoke();
+        }
+    }
+
+    private Direction ReadDirection()
+    {
+        if (_controls.Held != Direction.None) return _controls.Held;
+        if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W)) return Direction.Up;
+        if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S)) return Direction.Down;
+        if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A)) return Direction.Left;
+        if (Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.D)) return Direction.Right;
+        return Direction.None;
+    }
+
+    private void OnGUI()
+    {
+        // Each player's avatar, nickname and whether they are still in.
+        float u = Ui.U, x = 2 * u;
+        for (int i = 0; i < Players.Count; i++)
+        {
+            bool alive = Game.Bombers[i].Alive;
+            var old = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, alive ? 1f : 0.4f);
+            GUI.DrawTexture(new Rect(x, u, 7 * u, 7 * u), PlaceholderSprites.BomberAvatar(Players[i].Avatar).texture, ScaleMode.ScaleToFit);
+            GUI.Label(new Rect(x + 7 * u, u, 30 * u, 7 * u), Players[i].Nickname + (alive ? "" : "  " + Text.Out), Ui.Small);
+            GUI.color = old;
+            x += 38 * u;
+        }
+        if (Game.TimeLimitTicks > 0)
+        {
+            long left = Math.Max(0, (Game.TimeLimitTicks - Game.Tick) / Units.TicksPerSecond);
+            GUI.Label(new Rect(Screen.width - 30 * u, u, 28 * u, 7 * u), Ui.Clock(left), Ui.Label);
+        }
+    }
+}

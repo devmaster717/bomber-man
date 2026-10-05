@@ -8,6 +8,9 @@ namespace BombArena.Core
         Playing,
         Failed,
         Cleared,
+
+        /// <summary>A Bluetooth round has ended: see <see cref="Game.Winner"/> (null for a draw).</summary>
+        RoundOver,
     }
 
     public enum FailReason
@@ -220,7 +223,9 @@ namespace BombArena.Core
             Tick++;
 
             // Win/lose checks
-            if (!_bombers[0].Alive)
+            if (IsRound)
+                CheckRoundOver();
+            else if (!_bombers[0].Alive)
                 Fail(FailReason.Died);
             else if (ExitOpen && _bombers[0].Tile == ExitTile)
                 Clear();

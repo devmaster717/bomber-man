@@ -19,8 +19,8 @@ namespace BombArena.Core
         public TilePos Spawn { get; }
 
         /// <summary>Centre position in units (see <see cref="Units"/>).</summary>
-        public int X { get; private set; }
-        public int Y { get; private set; }
+        public int X { get; internal set; }
+        public int Y { get; internal set; }
 
         public bool Alive { get; internal set; } = true;
 

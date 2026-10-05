@@ -8,8 +8,6 @@ using UnityEngine;
 /// </summary>
 public sealed class GameView : MonoBehaviour
 {
-    /// <summary>Most tiles shown vertically; larger arenas scroll.</summary>
-    private const float MaxVisibleTilesHigh = 11f;
     private const float TickSeconds = 1f / Units.TicksPerSecond;
 
     public Game Game { get; private set; }
@@ -36,8 +34,8 @@ public sealed class GameView : MonoBehaviour
         int avatar = settings.Avatar;
         view.HookFeedback();
         view._renderer = new ArenaRenderer(view.Game, avatar);
-        view.SetUpCamera();
-        view.FollowCamera(view._renderer.BomberDrawPosition(0));
+        view._camera = ArenaCamera.SetUp(view.Game.Arena);
+        ArenaCamera.Follow(view._camera, view.Game.Arena, view._renderer.BomberDrawPosition(0));
         return view;
     }
 
@@ -92,7 +90,7 @@ public sealed class GameView : MonoBehaviour
         }
 
         _renderer.Draw(_accumulator / TickSeconds);
-        FollowCamera(_renderer.BomberDrawPosition(0));
+        ArenaCamera.Follow(_camera, Game.Arena, _renderer.BomberDrawPosition(0));
 
         if (Game.Outcome != Outcome.Playing && !_finishedRaised)
         {
@@ -131,34 +129,4 @@ public sealed class GameView : MonoBehaviour
     }
 
     private int StageNumber => int.TryParse(name.Replace("Stage ", ""), out int n) ? n : 0;
-
-    private void SetUpCamera()
-    {
-        _camera = Camera.main;
-        if (_camera == null)
-        {
-            _camera = new GameObject("Main Camera").AddComponent<Camera>();
-            _camera.tag = "MainCamera";
-        }
-        _camera.orthographic = true;
-        _camera.clearFlags = CameraClearFlags.SolidColor;
-        _camera.backgroundColor = Color.black;
-
-        // Never show space outside the walls: the view is no taller or wider than the arena.
-        float tilesHigh = Mathf.Min(MaxVisibleTilesHigh, Game.Arena.Height, Game.Arena.Width / _camera.aspect);
-        _camera.orthographicSize = tilesHigh / 2f;
-    }
-
-    private void FollowCamera(Vector2 target)
-    {
-        float halfH = _camera.orthographicSize, halfW = halfH * _camera.aspect;
-        int w = Game.Arena.Width, h = Game.Arena.Height;
-
-        float x = Clamp(target.x, -0.5f + halfW, w - 0.5f - halfW, (w - 1) / 2f);
-        float y = Clamp(target.y, -(h - 0.5f) + halfH, 0.5f - halfH, -(h - 1) / 2f);
-        _camera.transform.position = new Vector3(x, y, -10f);
-    }
-
-    private static float Clamp(float value, float min, float max, float centreIfTooSmall) =>
-        min > max ? centreIfTooSmall : Mathf.Clamp(value, min, max);
 }

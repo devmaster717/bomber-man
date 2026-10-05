@@ -105,6 +105,16 @@ public static class Text
     public const string HostLabel = "host";
     public static string PlayersInRoom(int n, int max) => $"{n} of {max} players";
     public const string Leave = "Leave";
+    public const string Out = "out";
+    public static string ArenaSize(int w, int h) => $"Arena {w} x {h}";
+    public static string RoundTime(int seconds) => seconds == 0 ? "Time: unlimited" : $"Time: {seconds / 60} min";
+    public const string StartRound = "Start round";
+    public const string NeedAnotherPlayer = "Waiting for at least one more player.";
+    public static string Winner(string nickname) => $"{nickname} wins!";
+    public const string YouWin = "You win!";
+    public const string Draw = "Draw";
+    public const string HostLeft = "The host's connection was lost. The round has ended.";
+    public const string BackToMenu = "Back";
 
     // Settings
     public const string Music = "Music";
