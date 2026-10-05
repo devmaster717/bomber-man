@@ -11,7 +11,9 @@ public sealed class GameView : MonoBehaviour
     [SerializeField] private int height = Arena.DefaultHeight;
     [SerializeField] private int seed = 1;
     [SerializeField, Range(0, 100)] private int softBlockPercent = Arena.DefaultSoftBlockPercent;
-    [SerializeField] private int walkers = 4;
+    [SerializeField] private int walkers = 2;
+    [SerializeField] private int phantoms = 1;
+    [SerializeField] private int wallPassers = 1;
     [SerializeField] private int targetSeconds = 90;
     [SerializeField] private int runnersFromExit = 2;
 
@@ -46,7 +48,12 @@ public sealed class GameView : MonoBehaviour
         _game = Game.ForStage(new StageSpec
         {
             Width = width, Height = height, Seed = (ulong)seed, SoftBlockPercent = softBlockPercent,
-            Enemies = { new EnemyGroup(EnemyKind.Walker, walkers) },
+            Enemies =
+            {
+                new EnemyGroup(EnemyKind.Walker, walkers),
+                new EnemyGroup(EnemyKind.Phantom, phantoms),
+                new EnemyGroup(EnemyKind.WallPasser, wallPassers),
+            },
             TargetSeconds = targetSeconds, RunnersFromExit = runnersFromExit,
         });
         _renderer = new ArenaRenderer(_game);

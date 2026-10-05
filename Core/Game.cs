@@ -31,6 +31,7 @@ namespace BombArena.Core
         private readonly List<Bomb> _bombs = new List<Bomb>();
         private readonly List<Enemy> _enemies = new List<Enemy>();
         private readonly int[] _fire;
+        private readonly bool[] _fireFromSoftBlock;
         private readonly Rng _rng;
 
         public Arena Arena { get; }
@@ -71,6 +72,7 @@ namespace BombArena.Core
             Arena = arena;
             _rng = new Rng(rngSeed);
             _fire = new int[arena.Width * arena.Height];
+            _fireFromSoftBlock = new bool[arena.Width * arena.Height];
             for (int i = 0; i < spawns.Length; i++)
                 _bombers.Add(new Bomber(i, spawns[i]));
         }
@@ -91,6 +93,7 @@ namespace BombArena.Core
         public Enemy AddEnemy(EnemyKind kind, TilePos tile)
         {
             var e = new Enemy(kind, tile);
+            if (kind == EnemyKind.Phantom) e.TeleportCountdown = NextTeleportInterval();
             _enemies.Add(e);
             return e;
         }
@@ -122,10 +125,6 @@ namespace BombArena.Core
                     free.RemoveAt(pick);
                 }
         }
-
-        /// <summary>Whether an enemy may enter the tile: open floor with no bomb.</summary>
-        public bool IsOpenForEnemy(Enemy enemy, int x, int y) =>
-            Arena.IsWalkable(x, y) && BombAt(new TilePos(x, y)) == null;
 
         public bool IsBurning(TilePos tile) => _fire[tile.Y * Arena.Width + tile.X] > 0;
         public bool IsBurning(int x, int y) => _fire[y * Arena.Width + x] > 0;
@@ -163,8 +162,11 @@ namespace BombArena.Core
             }
             ReleaseBombsOwnersLeft();
             foreach (var enemy in _enemies)
-                if (enemy.Alive)
-                    enemy.Move((x, y) => IsOpenForEnemy(enemy, x, y), _rng);
+            {
+                if (!enemy.Alive) continue;
+                if (enemy.Kind == EnemyKind.Phantom && AdvancePhantom(enemy)) continue;
+                enemy.Move((x, y) => IsOpenForEnemy(enemy, x, y), _rng);
+            }
 
             // Bomb placement
             for (int i = 0; i < _bombers.Count && i < inputs.Length; i++)
@@ -183,14 +185,14 @@ namespace BombArena.Core
 
             // Deaths: fire kills bombers and enemies; touching an enemy kills a bomber.
             foreach (var enemy in _enemies)
-                if (enemy.Alive && TouchesFire(enemy.Tile, enemy.HitboxOverlaps))
+                if (enemy.Alive && enemy.Present && FireTouchesEnemy(enemy))
                     enemy.Alive = false;
             foreach (var bomber in _bombers)
             {
                 if (!bomber.Alive) continue;
                 if (TouchesFire(bomber.Tile, bomber.HitboxOverlaps)) { Kill(bomber); continue; }
                 foreach (var enemy in _enemies)
-                    if (enemy.Alive && enemy.Touches(bomber)) { Kill(bomber); break; }
+                    if (enemy.Alive && enemy.Present && enemy.Touches(bomber)) { Kill(bomber); break; }
             }
 
             // Timers
@@ -265,6 +267,7 @@ namespace BombArena.Core
                         SetFire(t);
                         if (tile == Tile.SoftBlock)
                         {
+                            _fireFromSoftBlock[t.Y * Arena.Width + t.X] = true;
                             softHit.Add(t);
                             break;
                         }
@@ -291,6 +294,7 @@ namespace BombArena.Core
         private void SetFire(TilePos t)
         {
             _fire[t.Y * Arena.Width + t.X] = FireTicks;
+            _fireFromSoftBlock[t.Y * Arena.Width + t.X] = false;
             if (ExitRevealed && t == ExitTile && !_runnersTriggered)
             {
                 _runnersTriggered = true;

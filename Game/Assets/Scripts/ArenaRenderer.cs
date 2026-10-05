@@ -123,7 +123,8 @@ public sealed class ArenaRenderer
         for (int i = 0; i < _enemies.Count; i++)
         {
             var e = _game.Enemies[i];
-            _enemies[i].enabled = e.Alive;
+            _enemies[i].enabled = e.Alive && e.Opacity > 0f;
+            _enemies[i].color = new Color(1f, 1f, 1f, e.Opacity);
             _enemies[i].transform.position = Vector2.Lerp(_enemyPrevious[i], _enemyCurrent[i], t);
         }
 
