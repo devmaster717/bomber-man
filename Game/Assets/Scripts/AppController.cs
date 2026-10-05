@@ -18,6 +18,7 @@ public sealed class AppController : MonoBehaviour
         Settings,
         Shop,
         JewelPacks,
+        Bluetooth,
     }
 
     private const int StagesPerPage = 20;
@@ -26,6 +27,7 @@ public sealed class AppController : MonoBehaviour
     private IWallet _wallet;
     private StageProgress _progress;
     private Shop _shop;
+    private BattleScreens _battle;
     private string _shopMessage;
     private Texture2D _qr;
     private Feedback _feedback;
@@ -47,6 +49,8 @@ public sealed class AppController : MonoBehaviour
         _wallet = new LocalWallet(_profile, ProfileStore.Now, Save);
         _progress = new StageProgress(_profile, _wallet, Save);
         _shop = new Shop(_profile, _wallet, Save);
+        _battle = new BattleScreens(_profile, _wallet);
+        _battle.Exit += GoHome;
         _feedback = Feedback.Create(_profile.MusicOn, _profile.SoundOn, _profile.VibrationOn);
         _stage = _progress.HighestUnlocked;
         _selectPage = (_stage - 1) / StagesPerPage;
@@ -59,6 +63,7 @@ public sealed class AppController : MonoBehaviour
 
     private void Update()
     {
+        if (_page == Page.Bluetooth) _battle.Update();
         if (_page == Page.Playing && (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P)))
             Pause();
     }
@@ -166,6 +171,7 @@ public sealed class AppController : MonoBehaviour
             case Page.Settings: DrawSettings(); break;
             case Page.Shop: DrawShop(); break;
             case Page.JewelPacks: DrawJewelPacks(); break;
+            case Page.Bluetooth: _battle.OnGUI(); break;
         }
     }
 
@@ -231,9 +237,11 @@ public sealed class AppController : MonoBehaviour
             _selectPage = (_stage - 1) / StagesPerPage;
             _page = Page.StageSelect;
         }
-        GUI.enabled = false;
-        GUI.Button(col.Next(11), Text.Bluetooth + Text.ComingSoon, Ui.Button);
-        GUI.enabled = true;
+        if (GUI.Button(col.Next(11), Text.Bluetooth, Ui.Button))
+        {
+            _battle.Open();
+            _page = Page.Bluetooth;
+        }
         if (GUI.Button(col.Next(11), Text.Shop, Ui.Button))
         {
             _shopMessage = null;
