@@ -1,0 +1,8 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Notes kept outside version control
+specification.txt
