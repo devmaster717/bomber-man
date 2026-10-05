@@ -1,0 +1,8 @@
+# Stage 65
+width = 25
+height = 13
+seed = 515735
+softBlocks = 60
+enemies = Walker:3, WallPasser:1, Phantom:1, Runner:1
+targetSeconds = 180
+runnersFromExit = 5

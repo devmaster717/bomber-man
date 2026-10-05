@@ -1,0 +1,8 @@
+# Stage 15
+width = 21
+height = 11
+seed = 119785
+softBlocks = 60
+enemies = Walker:3, WallPasser:1
+targetSeconds = 120
+runnersFromExit = 3

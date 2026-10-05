@@ -1,0 +1,8 @@
+# Stage 30
+width = 21
+height = 11
+seed = 238570
+softBlocks = 60
+enemies = Walker:4, WallPasser:2
+targetSeconds = 120
+runnersFromExit = 3

@@ -1,0 +1,8 @@
+# Stage 53
+width = 23
+height = 13
+seed = 420707
+softBlocks = 60
+enemies = Walker:5, WallPasser:1, Phantom:1
+targetSeconds = 150
+runnersFromExit = 4

@@ -9,6 +9,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BombArena.Core", "DotNet\Bo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BombArena.Core.Tests", "DotNet\BombArena.Core.Tests\BombArena.Core.Tests.csproj", "{346CAAD1-77A1-41ED-A3DF-AA80DE93DD43}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{5DCC4904-B096-4D0C-B7D1-1CB6744D4E5D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StageGenerator", "Tools\StageGenerator\StageGenerator.csproj", "{C7362259-60C6-475F-8CE3-417EEE219AB7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,9 +30,14 @@ Global
 		{346CAAD1-77A1-41ED-A3DF-AA80DE93DD43}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{346CAAD1-77A1-41ED-A3DF-AA80DE93DD43}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{346CAAD1-77A1-41ED-A3DF-AA80DE93DD43}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7362259-60C6-475F-8CE3-417EEE219AB7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7362259-60C6-475F-8CE3-417EEE219AB7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7362259-60C6-475F-8CE3-417EEE219AB7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7362259-60C6-475F-8CE3-417EEE219AB7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{62D8AB98-06D7-42AC-A34A-C56741DB497C} = {218BABB0-BA47-4AD2-A7D3-5389758F7A7D}
 		{346CAAD1-77A1-41ED-A3DF-AA80DE93DD43} = {218BABB0-BA47-4AD2-A7D3-5389758F7A7D}
+		{C7362259-60C6-475F-8CE3-417EEE219AB7} = {5DCC4904-B096-4D0C-B7D1-1CB6744D4E5D}
 	EndGlobalSection
 EndGlobal

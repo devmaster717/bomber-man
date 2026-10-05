@@ -1,0 +1,8 @@
+# Stage 44
+width = 23
+height = 11
+seed = 349436
+softBlocks = 60
+enemies = Walker:4, WallPasser:1, Phantom:1
+targetSeconds = 150
+runnersFromExit = 4

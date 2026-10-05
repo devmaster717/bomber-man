@@ -1,0 +1,8 @@
+# Stage 35
+width = 23
+height = 11
+seed = 278165
+softBlocks = 60
+enemies = Walker:3, WallPasser:1, Phantom:1
+targetSeconds = 150
+runnersFromExit = 4

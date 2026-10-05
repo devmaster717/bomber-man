@@ -7,15 +7,7 @@ using UnityEngine;
 /// </summary>
 public sealed class GameView : MonoBehaviour
 {
-    [SerializeField] private int width = Arena.DefaultWidth;
-    [SerializeField] private int height = Arena.DefaultHeight;
-    [SerializeField] private int seed = 1;
-    [SerializeField, Range(0, 100)] private int softBlockPercent = Arena.DefaultSoftBlockPercent;
-    [SerializeField] private int walkers = 2;
-    [SerializeField] private int phantoms = 1;
-    [SerializeField] private int wallPassers = 1;
-    [SerializeField] private int targetSeconds = 90;
-    [SerializeField] private int runnersFromExit = 2;
+    [SerializeField, Range(1, 100)] private int stageNumber = 1;
 
     /// <summary>Most tiles shown vertically; larger arenas scroll.</summary>
     private const float MaxVisibleTilesHigh = 11f;
@@ -47,17 +39,7 @@ public sealed class GameView : MonoBehaviour
     {
         _renderer?.Destroy();
         _attempt++;
-        _game = Game.ForStage(new StageSpec
-        {
-            Width = width, Height = height, Seed = (ulong)seed, SoftBlockPercent = softBlockPercent,
-            Enemies =
-            {
-                new EnemyGroup(EnemyKind.Walker, walkers),
-                new EnemyGroup(EnemyKind.Phantom, phantoms),
-                new EnemyGroup(EnemyKind.WallPasser, wallPassers),
-            },
-            TargetSeconds = targetSeconds, RunnersFromExit = runnersFromExit,
-        }, attemptSeed: (ulong)System.DateTime.UtcNow.Ticks ^ (ulong)_attempt);
+        _game = Game.ForStage(StageLibrary.Load(stageNumber), attemptSeed: (ulong)System.DateTime.UtcNow.Ticks ^ (ulong)_attempt);
         _renderer = new ArenaRenderer(_game);
         _accumulator = 0f;
         _bombQueued = _detonateQueued = false;
