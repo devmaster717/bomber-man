@@ -117,6 +117,13 @@ public static class Text
     public const string BackToMenu = "Back";
     public static string EntryFee(long fee) => $"Fee {fee}";
     public static string Enemies(bool on) => on ? "Enemies on" : "Enemies off";
+    public const string ForfeitButton = "Forfeit";
+    public static string WaitingFor(string nickname, int seconds) => $"Waiting for {nickname}... {seconds}s";
+    public const string CountAsForfeit = "Count them as a forfeit";
+    public const string LinkLostTitle = "Connection lost";
+    public const string ReconnectHint = "Reconnect to carry on, or leave (your fee stays in the pot).";
+    public const string Reconnect = "Reconnect";
+    public const string Reconnecting = "Reconnecting...";
     public const string SomeoneCannotPay = "Everyone needs at least the entry fee in jewels.";
     public static string PotWon(long pot) => $"Pot: {pot} jewels";
     public static string JewelChange(long change) => change > 0 ? $"You get {change} jewels" : change == 0 ? "No jewels back" : $"{change} jewels";

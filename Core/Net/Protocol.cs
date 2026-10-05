@@ -19,6 +19,7 @@ namespace BombArena.Core.Net
         Paused = 10,
         Resumed = 11,
         Result = 12,
+        Rejoin = 13,
     }
 
     /// <summary>A player as the room sees them.</summary>

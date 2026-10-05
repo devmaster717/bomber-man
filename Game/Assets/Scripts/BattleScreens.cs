@@ -25,6 +25,9 @@ public sealed class BattleScreens
     private LobbyHost _host;
     private LobbyGuest _guest;
     private IGuestTransport _guestLink;
+    private RoundGuest _roundGuest;
+    private string _hostAddress;
+    private bool _rejoining;
     private RoundView _round;
     private long _fee;
     private long _payout;
@@ -46,7 +49,7 @@ public sealed class BattleScreens
         _step = Step.Menu;
         _status = null;
         _bt ??= new BluetoothTransport();
-        _bt.Error += m => _status = m;
+        _bt.Error += m => { _status = m; _rejoining = false; };
         _bt.JoinedHost += OnJoinedHost;
         BluetoothTransport.RequestPermissions(ok =>
         {
@@ -88,12 +91,20 @@ public sealed class BattleScreens
     private void OnJoinedHost(IGuestTransport link)
     {
         _guestLink = link;
+        if (_rejoining && _roundGuest != null)
+        {
+            _rejoining = false;
+            _roundGuest.Rejoin(link);
+            _status = null;
+            return;
+        }
         _guest = new LobbyGuest(link, Me());
         _guest.Other += m =>
         {
             if (Protocol.TypeOf(m) != MessageType.Start) return;
             _guest.Detach();
             var roundGuest = new RoundGuest(_guestLink, m);
+            _roundGuest = roundGuest;
             PayFee(roundGuest.Settings.EntryFee);
             _round = RoundView.ForGuest(roundGuest, _profile);
             _round.Ended += Settle;
@@ -148,6 +159,8 @@ public sealed class BattleScreens
     {
         if (_round != null) UnityEngine.Object.Destroy(_round.gameObject);
         _round = null;
+        _roundGuest = null;
+        _rejoining = false;
         _host?.Detach();
         _host = null;
         _guest?.Leave();
@@ -168,6 +181,7 @@ public sealed class BattleScreens
         if (_step == Step.Playing)
         {
             if (_round != null && _round.Over) DrawResult();
+            else if (_roundGuest != null && _roundGuest.LinkLost) DrawLinkLost();
             return;
         }
         GUI.Label(new Rect(0, 3 * u, w, 10 * u), Text.Bluetooth, Ui.Title);
@@ -223,6 +237,7 @@ public sealed class BattleScreens
             string label = p.Name + (p.RunsBombArena ? "  - " + Text.GameTitle : "") + (p.Paired ? "  (" + Text.Paired + ")" : "");
             if (GUI.Button(new Rect(w * 0.2f, y, w * 0.6f, 9 * u), label, Ui.Button))
             {
+                _hostAddress = p.Address;
                 _bt.Connect(p.Address);
                 _step = Step.Joining;
             }
@@ -302,6 +317,22 @@ public sealed class BattleScreens
         int i = Array.IndexOf(RoundSettings.TimeLimitChoices, s.TimeLimitSeconds);
         n.TimeLimitSeconds = RoundSettings.TimeLimitChoices[(i + 1) % RoundSettings.TimeLimitChoices.Length];
         return n;
+    }
+
+    /// <summary>A guest's link dropped mid-round: reconnect to the same host, or give up (no refund).</summary>
+    private void DrawLinkLost()
+    {
+        var col = new Ui.Column(Ui.Panel(0.55f, 0.6f));
+        GUI.Label(col.Next(10), Text.LinkLostTitle, Ui.Title);
+        GUI.Label(col.Next(12), _rejoining ? Text.Reconnecting : Text.ReconnectHint, Ui.Small);
+        GUI.enabled = !_rejoining && _hostAddress != null;
+        if (GUI.Button(col.Next(10), Text.Reconnect, Ui.Button))
+        {
+            _rejoining = true;
+            _bt.Connect(_hostAddress);
+        }
+        GUI.enabled = true;
+        if (GUI.Button(col.Next(10), Text.Leave, Ui.Button)) Leave();
     }
 
     private void DrawResult()

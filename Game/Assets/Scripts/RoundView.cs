@@ -25,8 +25,14 @@ public sealed class RoundView : MonoBehaviour
     public int YourIndex => _host != null ? 0 : _guest.YourIndex;
     public IReadOnlyList<PlayerInfo> Players => _host != null ? _host.Players : (IReadOnlyList<PlayerInfo>)_guest.Players;
 
-    /// <summary>True once the round has a result (or the host was lost).</summary>
-    public bool Over => _host != null ? Game.Outcome == Outcome.RoundOver : _guest.Finished || _guest.HostLost;
+    public RoundHost Host => _host;
+    public RoundGuest Guest => _guest;
+
+    /// <summary>True once the round has a result.</summary>
+    public bool Over => _host != null ? Game.Outcome == Outcome.RoundOver : _guest.Finished;
+
+    /// <summary>True while the round is paused, waiting for a player (or for the host).</summary>
+    public bool Paused => _host != null ? _host.Paused : _guest.PausedFor != null || _guest.LinkLost;
 
     public int? Winner => _host != null ? Game.Winner : _guest.Winner;
     public bool HostLost => _guest != null && _guest.HostLost;
@@ -39,6 +45,7 @@ public sealed class RoundView : MonoBehaviour
     {
         var v = Create(settings);
         v._host = host;
+        v._host.Clock = () => Time.realtimeSinceStartup;
         v.Build();
         return v;
     }
@@ -86,7 +93,7 @@ public sealed class RoundView : MonoBehaviour
     private void Update()
     {
         var me = Game.Bombers[YourIndex];
-        _controls.enabled = !Over && me.Alive;
+        _controls.enabled = !Over && !Paused && me.Alive;
         _controls.ShowDetonate = me.HasRemoteControl;
 
         _bombQueued |= _controls.BombPressed || Input.GetKeyDown(KeyCode.Space);
@@ -124,6 +131,19 @@ public sealed class RoundView : MonoBehaviour
         }
     }
 
+    // Leaving the app pauses the round for everyone until this player is back.
+    private void OnApplicationPause(bool paused)
+    {
+        if (_host != null) _host.SetHostAway(paused);
+        else _guest.SetAway(paused);
+    }
+
+    private void Forfeit()
+    {
+        if (_host != null) _host.ForfeitHost();
+        else _guest.Forfeit();
+    }
+
     private Direction ReadDirection()
     {
         if (_controls.Held != Direction.None) return _controls.Held;
@@ -148,6 +168,21 @@ public sealed class RoundView : MonoBehaviour
             GUI.color = old;
             x += 38 * u;
         }
+        // Forfeit: leave the round on purpose (the fee stays in the pot).
+        if (!Over && Game.Bombers[YourIndex].Alive &&
+            GUI.Button(new Rect(Screen.width - 24 * u, 10 * u, 22 * u, 8 * u), Text.ForfeitButton, Ui.SmallButton))
+            Forfeit();
+
+        int? waitingFor = _host != null ? (_host.WaitingFor) : _guest.PausedFor;
+        if (waitingFor is int w && !Over && !(_guest != null && _guest.LinkLost))
+        {
+            var col = new Ui.Column(Ui.Panel(0.5f, 0.4f));
+            int seconds = _host != null ? (int)_host.WaitedSeconds : 0;
+            GUI.Label(col.Next(10), Text.WaitingFor(Players[w].Nickname, seconds), Ui.Label);
+            if (_host != null && _host.CanForfeitMissing && GUI.Button(col.Next(10), Text.CountAsForfeit, Ui.Button))
+                _host.ForfeitMissing();
+        }
+
         if (Game.TimeLimitTicks > 0)
         {
             long left = Math.Max(0, (Game.TimeLimitTicks - Game.Tick) / Units.TicksPerSecond);
