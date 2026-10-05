@@ -84,6 +84,28 @@ public static class Text
     public const string QrPlaceholder = "Payments are coming soon. This QR code is a placeholder and does not credit any jewels.";
     public const string QrPacks = "Pack sizes and prices: to be decided";
 
+    // Bluetooth
+    public const string BluetoothUnavailable = "Bluetooth battles need an Android phone with Bluetooth.";
+    public const string BluetoothOff = "Bluetooth is off.";
+    public const string TurnOnBluetooth = "Turn on Bluetooth";
+    public const string BluetoothPermissionsNeeded = "Bomb Arena needs the Nearby devices permission to find other phones.";
+    public const string HostRoom = "Host a room";
+    public const string JoinRoom = "Join a room";
+    public const string CouldNotHost = "Could not open a room. Is Bluetooth on?";
+    public const string WaitingForPlayers = "Waiting for players to join...";
+    public const string LookingForRooms = "Looking for nearby rooms...";
+    public const string NearbyPhones = "Nearby phones";
+    public const string NoRoomsFound = "No rooms found. Ask the host to open a room, then scan again.";
+    public const string ScanAgain = "Scan again";
+    public const string Paired = "paired";
+    public const string Connecting = "Connecting...";
+    public const string ConnectionLost = "The connection was lost.";
+    public const string YourRoom = "Your room";
+    public const string InRoom = "In the room";
+    public const string HostLabel = "host";
+    public static string PlayersInRoom(int n, int max) => $"{n} of {max} players";
+    public const string Leave = "Leave";
+
     // Settings
     public const string Music = "Music";
     public const string SoundEffects = "Sound effects";
