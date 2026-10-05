@@ -18,24 +18,83 @@ public static class PlaceholderSprites
         _ => _floor ??= Make(FloorPixel),
     };
 
-    public static Sprite Bomber => BomberAvatar(0);
+    // The bomber in the arena looks the same for everyone; in Bluetooth rounds each player slot has its own colours
+    // (shirt, feet), so players can tell their bombers apart.
+    private static readonly string[,] SlotColours = { { "#F2F2F2", "#2D5BD8" }, { "#E04B4B", "#3A2A1A" }, { "#2D5BD8", "#F2C230" } };
+    private static readonly Sprite[] _bombers = new Sprite[3];
 
-    private static readonly Sprite[] _avatars = new Sprite[PlayerProfile.AvatarCount];
-
-    // Shirt, feet and hair colours for the 10 avatars.
-    private static readonly string[,] AvatarColours =
+    /// <summary>The in-arena bomber for player slot 0 (host or stage player), 1 or 2.</summary>
+    public static Sprite Bomber(int slot)
     {
-        { "#F2F2F2", "#2D5BD8", "#FFE0C2" }, { "#E04B4B", "#3A2A1A", "#FFE0C2" }, { "#2FA37A", "#1B4332", "#6B4226" },
-        { "#F2C230", "#7A4E00", "#C68642" }, { "#8E44C9", "#F2F2F2", "#FFE0C2" }, { "#FF8C42", "#1D3557", "#C68642" },
-        { "#1D3557", "#E63946", "#FFE0C2" }, { "#EC6FB1", "#5A189A", "#8D5524" }, { "#4CC9F0", "#3A0CA3", "#FFE0C2" },
-        { "#2B2B2B", "#F2C230", "#E0AC69" },
+        int s = Mathf.Clamp(slot, 0, _bombers.Length - 1);
+        return _bombers[s] ??= Make((x, y) => BomberPixel(x, y, Hex(SlotColours[s, 0]), Hex(SlotColours[s, 1]), Hex("#FFE0C2")));
+    }
+
+    private enum Hair { Short, Long, Spiky, Bun, Cap }
+
+    // The 10 avatars are headshots shown in menus and next to nicknames only; they never appear in the arena.
+    // Skin, hair colour, hair style, shirt, background, and hat colour for caps.
+    private static readonly (string skin, string hair, Hair style, string shirt, string bg, string hat)[] Looks =
+    {
+        ("#FFE0C2", "#3B2A1A", Hair.Short, "#F2F2F2", "#4C7BD9", null),
+        ("#C68642", "#1B1B1B", Hair.Spiky, "#E04B4B", "#F2C230", null),
+        ("#8D5524", "#1B1B1B", Hair.Bun, "#2FA37A", "#EC6FB1", null),
+        ("#FFE0C2", "#E8C547", Hair.Long, "#8E44C9", "#4CC9F0", null),
+        ("#E0AC69", "#7A2E12", Hair.Cap, "#1D3557", "#9BE15D", "#E63946"),
+        ("#FFE0C2", "#C0392B", Hair.Long, "#2FA37A", "#FFB627", null),
+        ("#8D5524", "#2B2B2B", Hair.Short, "#F2C230", "#8E44C9", null),
+        ("#C68642", "#5A3825", Hair.Long, "#EC6FB1", "#2FA37A", null),
+        ("#FFE0C2", "#9AA0A6", Hair.Spiky, "#1D3557", "#E04B4B", null),
+        ("#E0AC69", "#1B1B1B", Hair.Cap, "#F2F2F2", "#FF8C42", "#2D5BD8"),
     };
 
-    public static Sprite BomberAvatar(int avatar)
+    private const int AvatarSize = 32;
+    private static readonly Sprite[] _avatars = new Sprite[PlayerProfile.AvatarCount];
+
+    /// <summary>One of the 10 avatar headshots.</summary>
+    public static Sprite Avatar(int avatar)
     {
         int a = Mathf.Clamp(avatar, 0, PlayerProfile.AvatarCount - 1);
-        return _avatars[a] ??= Make((x, y) => BomberPixel(x, y, Hex(AvatarColours[a, 0]), Hex(AvatarColours[a, 1]), Hex(AvatarColours[a, 2])));
+        return _avatars[a] ??= Make((x, y) => AvatarPixel(x, y, a), AvatarSize);
     }
+
+    private static Color AvatarPixel(int x, int y, int a)
+    {
+        var look = Looks[a];
+        float px = x + 0.5f, v = AvatarSize - y - 0.5f; // v runs top-down
+        bool In(float cx, float cy, float rx, float ry) => (px - cx) * (px - cx) / (rx * rx) + (v - cy) * (v - cy) / (ry * ry) <= 1f;
+
+        if (!In(16, 16, 16, 16)) return Color.clear;
+        bool face = In(16, 15, 7, 8);
+        bool head = In(16, 13.5f, 8.5f, 9f);
+        bool hairFront = look.style == Hair.Cap
+            ? head && !face && v > 10 && v <= 14
+            : head && (v <= 10 || (!face && v <= 14));
+        bool hairBack = look.style switch
+        {
+            Hair.Long => In(16, 17, 10, 12) && v <= 27,
+            Hair.Spiky => v >= 2 && v <= 7 && px >= 8 && px <= 24 && Mathf.Abs(x % 4 - 1.5f) <= (v - 2) * 0.45f,
+            Hair.Bun => In(16, 3.5f, 3.5f, 3f),
+            _ => false,
+        };
+        if (look.style == Hair.Cap)
+        {
+            if (In(16, 10, 8.8f, 7f) && v <= 10) return Hex(look.hat);
+            if (v > 9.5f && v <= 11.5f && px >= 8 && px <= 26) return Hex(look.hat) * 0.8f; // brim
+        }
+        if (hairFront) return Hex(look.hair);
+        if (face)
+        {
+            if (v > 14 && v < 17 && (x == 12 || x == 19)) return Hex("#1B1B1B");
+            if (v > 19 && v < 21 && x >= 14 && x <= 17) return Hex("#9B2D30");
+            return Hex(look.skin);
+        }
+        if (hairBack) return Hex(look.hair);
+        if (v >= 21 && v <= 26 && px >= 13 && px <= 19) return Hex(look.skin) * 0.9f; // neck
+        if (In(16, 34, 13, 9.5f)) return Hex(look.shirt);
+        return Hex(look.bg);
+    }
+
     public static Sprite Bomb => _bomb ??= Make(BombPixel);
     public static Sprite Fire => _fire ??= Make(FirePixel);
 
@@ -127,18 +186,18 @@ public static class PlaceholderSprites
 
     private delegate Color Painter(int x, int y);
 
-    private static Sprite Make(Painter paint)
+    private static Sprite Make(Painter paint, int size = Size)
     {
-        var texture = new Texture2D(Size, Size, TextureFormat.RGBA32, false)
+        var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
         {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp,
         };
-        for (int y = 0; y < Size; y++)
-        for (int x = 0; x < Size; x++)
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
             texture.SetPixel(x, y, paint(x, y));
         texture.Apply();
-        return Sprite.Create(texture, new Rect(0, 0, Size, Size), new Vector2(0.5f, 0.5f), Size);
+        return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
     }
 
     private static Color Hex(string hex) => ColorUtility.TryParseHtmlString(hex, out var c) ? c : Color.magenta;

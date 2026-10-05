@@ -126,6 +126,28 @@ public class EnemyTests
     }
 
     [Test]
+    public void Enemies_out_of_range_survive_and_do_not_walk_into_the_fire()
+    {
+        var g = new Game(Arena.FromRows(Grid), new TilePos(1, 1));
+        var walker = g.AddEnemy(EnemyKind.Walker, new TilePos(3, 1));
+        g.Step(Direction.None, placeBomb: true);
+        for (int i = 0; i < 10; i++) g.Step(Direction.Down); // bomber escapes to (1,3)
+        // The range-1 fire reaches (2,1); keep the walker two tiles away, heading for the bomb, until it explodes.
+        while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing)
+        {
+            walker.X = 3 * T; walker.Y = 1 * T; walker.Heading = Direction.Left;
+            g.Step(Direction.None);
+        }
+        Assert.That(g.IsBurning(new TilePos(2, 1)), Is.True);
+        for (int i = 0; i < Game.FireTicks; i++)
+        {
+            g.Step(Direction.None);
+            Assert.That(walker.Alive, Is.True, $"tick {i} after the blast");
+            Assert.That(g.IsBurning(walker.Tile), Is.False, "never steps onto a burning tile");
+        }
+    }
+
+    [Test]
     public void Touching_an_enemy_kills_the_bomber()
     {
         var g = new Game(Arena.FromRows(Row), new TilePos(5, 1));

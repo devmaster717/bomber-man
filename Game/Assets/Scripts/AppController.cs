@@ -218,7 +218,7 @@ public sealed class AppController : MonoBehaviour
             GUI.color = i == selected ? Color.white : new Color(1f, 1f, 1f, 0.45f);
             if (GUI.Button(r, GUIContent.none, Ui.Button)) selected = i;
             GUI.DrawTexture(new Rect(r.x + size * 0.15f, r.y + size * 0.15f, size * 0.7f, size * 0.7f),
-                PlaceholderSprites.BomberAvatar(i).texture, ScaleMode.ScaleToFit);
+                PlaceholderSprites.Avatar(i).texture, ScaleMode.ScaleToFit);
             GUI.color = old;
             GUI.enabled = true;
         }
@@ -228,7 +228,7 @@ public sealed class AppController : MonoBehaviour
     {
         DrawWalletBar();
         float u = Ui.U;
-        GUI.DrawTexture(new Rect(3 * u, 2 * u, 10 * u, 10 * u), PlaceholderSprites.BomberAvatar(_profile.Avatar).texture, ScaleMode.ScaleToFit);
+        GUI.DrawTexture(new Rect(3 * u, 2 * u, 10 * u, 10 * u), PlaceholderSprites.Avatar(_profile.Avatar).texture, ScaleMode.ScaleToFit);
         GUI.Label(new Rect(14 * u, 2 * u, 40 * u, 10 * u), _profile.Nickname, Ui.Small);
         var col = new Ui.Column(new Rect(Screen.width * 0.3f, Screen.height * 0.12f, Screen.width * 0.4f, Screen.height * 0.88f), 0f);
         GUI.Label(col.Next(14), Text.GameTitle, Ui.Title);
@@ -430,7 +430,7 @@ public sealed class AppController : MonoBehaviour
             var r = new Rect(x + i * (size + gap), 61 * u, size, size);
             bool owned = _shop.Owns(i);
             if (GUI.Button(r, GUIContent.none, Ui.Button) && !owned) _shopMessage = Message(_shop.BuyAvatar(i));
-            GUI.DrawTexture(new Rect(r.x + size * 0.15f, r.y + size * 0.15f, size * 0.7f, size * 0.7f), PlaceholderSprites.BomberAvatar(i).texture, ScaleMode.ScaleToFit);
+            GUI.DrawTexture(new Rect(r.x + size * 0.15f, r.y + size * 0.15f, size * 0.7f, size * 0.7f), PlaceholderSprites.Avatar(i).texture, ScaleMode.ScaleToFit);
             GUI.Label(new Rect(r.x - gap / 2, r.yMax, size + gap, 5 * u), owned ? Text.Owned : Shop.AvatarPrice.ToString(), Ui.Small);
         }
 
