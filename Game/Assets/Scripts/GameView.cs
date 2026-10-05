@@ -26,13 +26,13 @@ public sealed class GameView : MonoBehaviour
     private float _accumulator;
     private bool _bombQueued, _detonateQueued, _finishedRaised;
 
-    public static GameView Begin(StageSpec spec, ulong attemptSeed, PowerUpLoadout startWith)
+    public static GameView Begin(StageSpec spec, ulong attemptSeed, PowerUpLoadout startWith, int avatar)
     {
         var view = new GameObject("Stage " + spec.Number).AddComponent<GameView>();
         view.Game = Game.ForStage(spec, attemptSeed);
         view.Game.ApplyLoadout(0, startWith);
         view._controls = view.gameObject.AddComponent<TouchControls>();
-        view._renderer = new ArenaRenderer(view.Game);
+        view._renderer = new ArenaRenderer(view.Game, avatar);
         view.SetUpCamera();
         view.FollowCamera(view._renderer.BomberDrawPosition(0));
         return view;

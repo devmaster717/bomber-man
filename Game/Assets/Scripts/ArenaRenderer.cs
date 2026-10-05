@@ -23,7 +23,8 @@ public sealed class ArenaRenderer
     private readonly List<SpriteRenderer> _enemies = new List<SpriteRenderer>();
     private readonly List<Vector2> _enemyPrevious = new List<Vector2>(), _enemyCurrent = new List<Vector2>();
 
-    public ArenaRenderer(Game game)
+    /// <param name="avatars">Avatar index per bomber (player 0 first); missing entries use avatar 0.</param>
+    public ArenaRenderer(Game game, params int[] avatars)
     {
         _game = game;
         _root = new GameObject("Arena").transform;
@@ -51,7 +52,8 @@ public sealed class ArenaRenderer
         _current = new Vector2[game.Bombers.Count];
         for (int i = 0; i < _bombers.Length; i++)
         {
-            _bombers[i] = Make($"Bomber {i}", PlaceholderSprites.Bomber, BomberOrder, Vector2.zero);
+            int avatar = avatars != null && i < avatars.Length ? avatars[i] : 0;
+            _bombers[i] = Make($"Bomber {i}", PlaceholderSprites.BomberAvatar(avatar), BomberOrder, Vector2.zero);
             _previous[i] = _current[i] = WorldPosition(game.Bombers[i]);
         }
         SyncEnemyList();

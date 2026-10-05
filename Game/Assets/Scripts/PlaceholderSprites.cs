@@ -9,7 +9,7 @@ public static class PlaceholderSprites
 {
     private const int Size = 16;
 
-    private static Sprite _floor, _hard, _soft, _bomber;
+    private static Sprite _floor, _hard, _soft;
 
     public static Sprite For(Tile tile) => tile switch
     {
@@ -18,7 +18,24 @@ public static class PlaceholderSprites
         _ => _floor ??= Make(FloorPixel),
     };
 
-    public static Sprite Bomber => _bomber ??= Make(BomberPixel);
+    public static Sprite Bomber => BomberAvatar(0);
+
+    private static readonly Sprite[] _avatars = new Sprite[PlayerProfile.AvatarCount];
+
+    // Shirt, feet and hair colours for the 10 avatars.
+    private static readonly string[,] AvatarColours =
+    {
+        { "#F2F2F2", "#2D5BD8", "#FFE0C2" }, { "#E04B4B", "#3A2A1A", "#FFE0C2" }, { "#2FA37A", "#1B4332", "#6B4226" },
+        { "#F2C230", "#7A4E00", "#C68642" }, { "#8E44C9", "#F2F2F2", "#FFE0C2" }, { "#FF8C42", "#1D3557", "#C68642" },
+        { "#1D3557", "#E63946", "#FFE0C2" }, { "#EC6FB1", "#5A189A", "#8D5524" }, { "#4CC9F0", "#3A0CA3", "#FFE0C2" },
+        { "#2B2B2B", "#F2C230", "#E0AC69" },
+    };
+
+    public static Sprite BomberAvatar(int avatar)
+    {
+        int a = Mathf.Clamp(avatar, 0, PlayerProfile.AvatarCount - 1);
+        return _avatars[a] ??= Make((x, y) => BomberPixel(x, y, Hex(AvatarColours[a, 0]), Hex(AvatarColours[a, 1]), Hex(AvatarColours[a, 2])));
+    }
     public static Sprite Bomb => _bomb ??= Make(BombPixel);
     public static Sprite Fire => _fire ??= Make(FirePixel);
 
@@ -144,7 +161,7 @@ public static class PlaceholderSprites
         return mortarRow || mortarCol ? Hex("#5C3518") : Hex("#A8642F");
     }
 
-    private static Color BomberPixel(int x, int y)
+    private static Color BomberPixel(int x, int y, Color shirt, Color feet, Color skin)
     {
         float cx = 7.5f, dx = x - cx;
         // head
@@ -152,12 +169,12 @@ public static class PlaceholderSprites
         if (dx * dx + hy * hy <= 12f)
         {
             bool eye = y == 11 && (x == 6 || x == 9);
-            return eye ? Hex("#1B1B1B") : Hex("#FFE0C2");
+            return eye ? Hex("#1B1B1B") : skin;
         }
         // body
-        if (y >= 3 && y <= 7 && x >= 4 && x <= 11) return Hex("#F2F2F2");
+        if (y >= 3 && y <= 7 && x >= 4 && x <= 11) return shirt;
         // feet
-        if (y >= 1 && y <= 2 && (x is >= 4 and <= 6 || x is >= 9 and <= 11)) return Hex("#2D5BD8");
+        if (y >= 1 && y <= 2 && (x is >= 4 and <= 6 || x is >= 9 and <= 11)) return feet;
         return Color.clear;
     }
 }
