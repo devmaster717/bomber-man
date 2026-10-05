@@ -34,7 +34,7 @@ public class StageTests
         g.Step(Direction.None, placeBomb: true);
         Wait(g, 5, Direction.Left);
         Wait(g, 10, Direction.Down);
-        while (g.Bombs.Count > 0) g.Step(Direction.None);
+        while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing) g.Step(Direction.None);
     }
 
     [Test]
@@ -57,7 +57,7 @@ public class StageTests
         g.Step(Direction.None, placeBomb: true);
         Wait(g, 5, Direction.Left);
         Wait(g, 10, Direction.Down);
-        while (g.Bombs.Count > 0) g.Step(Direction.None);
+        while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing) g.Step(Direction.None);
 
         Assert.That(g.Arena[3, 1], Is.EqualTo(Tile.Floor), "soft block destroyed");
         Assert.That(g.ExitRevealed, Is.False, "still burning");

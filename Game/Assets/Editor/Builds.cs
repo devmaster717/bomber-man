@@ -38,6 +38,10 @@ public static class Builds
         PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
         PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.OpenGLES3 });
 
+        // Everything is created from code at runtime, so engine stripping cannot see which classes are used;
+        // with it on, AddComponent fails on device ("Could not produce class with ID 115").
+        PlayerSettings.stripEngineCode = false;
+
         EditorUserBuildSettings.buildAppBundle = false;
         EnsureScene();
         AssetDatabase.SaveAssets();
@@ -63,12 +67,16 @@ public static class Builds
         return report.summary.result == BuildResult.Succeeded;
     }
 
+    /// <summary>The main scene holds the camera and the GameView component (which builds everything else).</summary>
     private static void EnsureScene()
     {
-        if (!File.Exists(ScenePath))
+        var scene = File.Exists(ScenePath)
+            ? EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single)
+            : EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+        if (Object.FindFirstObjectByType<GameView>() == null)
         {
+            new GameObject("Bomb Arena").AddComponent<GameView>();
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath)!);
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
             EditorSceneManager.SaveScene(scene, ScenePath);
         }
         EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };

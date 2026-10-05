@@ -6,3 +6,6 @@ obj/
 
 # Notes kept outside version control
 specification.txt
+
+# Test runs
+TestResults/
