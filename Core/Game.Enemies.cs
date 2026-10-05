@@ -16,13 +16,16 @@ namespace BombArena.Core
         private int NextTeleportInterval() => 4 * Units.TicksPerSecond + _rng.Next(2 * Units.TicksPerSecond + 1);
         private int NextFadeLength() => Units.TicksPerSecond / 2 + _rng.Next(Units.TicksPerSecond / 2 + 1);
 
-        /// <summary>Whether an enemy may enter the tile: open floor (Wall-passers also soft blocks) with no bomb.</summary>
+        /// <summary>
+        /// Whether an enemy may enter the tile: open floor (Wall-passers also soft blocks) with no bomb and no fire.
+        /// Enemies never walk into fire, so a blast only kills the enemies inside its range when it goes off.
+        /// </summary>
         public bool IsOpenForEnemy(Enemy enemy, int x, int y)
         {
             if (!Arena.InBounds(x, y)) return false;
             var tile = Arena[x, y];
             bool passable = tile == Tile.Floor || (tile == Tile.SoftBlock && enemy.Kind == EnemyKind.WallPasser);
-            return passable && BombAt(new TilePos(x, y)) == null;
+            return passable && BombAt(new TilePos(x, y)) == null && !IsBurning(x, y);
         }
 
         /// <summary>

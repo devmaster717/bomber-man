@@ -71,9 +71,7 @@ public sealed class RoundView : MonoBehaviour
 
     private void Build()
     {
-        var avatars = new int[Players.Count];
-        for (int i = 0; i < avatars.Length; i++) avatars[i] = Players[i].Avatar;
-        _renderer = new ArenaRenderer(Game, avatars);
+        _renderer = new ArenaRenderer(Game);
         _camera = ArenaCamera.SetUp(Game.Arena);
         ArenaCamera.Follow(_camera, Game.Arena, _renderer.BomberDrawPosition(YourIndex));
     }
@@ -156,17 +154,18 @@ public sealed class RoundView : MonoBehaviour
 
     private void OnGUI()
     {
-        // Each player's avatar, nickname and whether they are still in.
+        // Each player's avatar, their bomber, nickname and whether they are still in.
         float u = Ui.U, x = 2 * u;
         for (int i = 0; i < Players.Count; i++)
         {
             bool alive = Game.Bombers[i].Alive;
             var old = GUI.color;
             GUI.color = new Color(1f, 1f, 1f, alive ? 1f : 0.4f);
-            GUI.DrawTexture(new Rect(x, u, 7 * u, 7 * u), PlaceholderSprites.BomberAvatar(Players[i].Avatar).texture, ScaleMode.ScaleToFit);
-            GUI.Label(new Rect(x + 7 * u, u, 30 * u, 7 * u), Players[i].Nickname + (alive ? "" : "  " + Text.Out), Ui.Small);
+            GUI.DrawTexture(new Rect(x, u, 7 * u, 7 * u), PlaceholderSprites.Avatar(Players[i].Avatar).texture, ScaleMode.ScaleToFit);
+            GUI.DrawTexture(new Rect(x + 7.5f * u, 2 * u, 5 * u, 5 * u), PlaceholderSprites.Bomber(i).texture, ScaleMode.ScaleToFit);
+            GUI.Label(new Rect(x + 13 * u, u, 26 * u, 7 * u), Players[i].Nickname + (alive ? "" : "  " + Text.Out), Ui.Small);
             GUI.color = old;
-            x += 38 * u;
+            x += 40 * u;
         }
         // Forfeit: leave the round on purpose (the fee stays in the pot).
         if (!Over && Game.Bombers[YourIndex].Alive &&

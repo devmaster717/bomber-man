@@ -137,5 +137,5 @@ The jewels every player in a round pays when the host starts it.
 The sum of all entry fees in a round, paid to the winner.
 
 **Avatar**:
-A cosmetic look for the bomber, with no effect on play.
+A headshot portrait shown next to the player's nickname (home screen, room, battle header). It is display only: the bomber in the arena looks the same whichever avatar is chosen.
 _Avoid_: Skin, character

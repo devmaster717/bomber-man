@@ -31,9 +31,8 @@ public sealed class GameView : MonoBehaviour
         view.Game.ApplyLoadout(0, startWith);
         view._controls = view.gameObject.AddComponent<TouchControls>();
         view.ApplySettings(settings);
-        int avatar = settings.Avatar;
         view.HookFeedback();
-        view._renderer = new ArenaRenderer(view.Game, avatar);
+        view._renderer = new ArenaRenderer(view.Game);
         view._camera = ArenaCamera.SetUp(view.Game.Arena);
         ArenaCamera.Follow(view._camera, view.Game.Arena, view._renderer.BomberDrawPosition(0));
         return view;
