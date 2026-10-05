@@ -2,8 +2,8 @@ using BombArena.Core;
 using UnityEngine;
 
 /// <summary>
-/// Runs the game core on its fixed 20-tick clock and draws its state. Holds no rules of its own:
-/// it only reads input, steps the core and renders (ADR 0001).
+/// Runs the game core on its fixed 20-tick clock, feeds it input and draws its state. Holds no rules of its
+/// own (ADR 0001).
 /// </summary>
 public sealed class GameView : MonoBehaviour
 {
@@ -17,11 +17,11 @@ public sealed class GameView : MonoBehaviour
     private const float TickSeconds = 1f / Units.TicksPerSecond;
 
     private Game _game;
-    private TouchDpad _dpad;
+    private ArenaRenderer _renderer;
+    private TouchControls _controls;
     private Camera _camera;
-    private Transform _bomber;
-    private Vector2 _previous, _current;
     private float _accumulator;
+    private bool _bombQueued, _detonateQueued;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Boot()
@@ -33,38 +33,52 @@ public sealed class GameView : MonoBehaviour
     private void Start()
     {
         Application.targetFrameRate = 60;
+        _controls = gameObject.AddComponent<TouchControls>();
+        StartAttempt();
+    }
+
+    private void StartAttempt()
+    {
+        _renderer?.Destroy();
         _game = Game.Create(width, height, (ulong)seed, softBlockPercent);
-        _dpad = gameObject.AddComponent<TouchDpad>();
-
-        DrawArena();
-        _bomber = MakeSprite("Bomber", PlaceholderSprites.Bomber, 10).transform;
-        _previous = _current = BomberWorldPosition();
-        _bomber.position = _current;
-
+        _renderer = new ArenaRenderer(_game);
+        _accumulator = 0f;
+        _bombQueued = _detonateQueued = false;
         SetUpCamera();
-        FollowCamera(_current);
+        FollowCamera(_renderer.BomberDrawPosition(0));
     }
 
     private void Update()
     {
-        var input = ReadInput();
-        _accumulator = Mathf.Min(_accumulator + Time.deltaTime, 0.25f);
-        while (_accumulator >= TickSeconds)
+        // Presses are latched until the next tick consumes them, so a quick tap is never lost.
+        _bombQueued |= _controls.BombPressed || Input.GetKeyDown(KeyCode.Space);
+        _detonateQueued |= _controls.DetonatePressed || Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.E);
+
+        if (_game.Outcome == Outcome.Playing)
         {
-            _previous = _current;
-            _game.Step(input);
-            _current = BomberWorldPosition();
-            _accumulator -= TickSeconds;
+            var move = ReadDirection();
+            _accumulator = Mathf.Min(_accumulator + Time.deltaTime, 0.25f);
+            while (_accumulator >= TickSeconds && _game.Outcome == Outcome.Playing)
+            {
+                _game.Step(new BomberInput(move, _bombQueued, _detonateQueued));
+                _bombQueued = _detonateQueued = false;
+                _renderer.OnTick();
+                _accumulator -= TickSeconds;
+            }
+        }
+        else if (_bombQueued || Input.GetKeyDown(KeyCode.Return))
+        {
+            StartAttempt();
+            return;
         }
 
-        var drawn = Vector2.Lerp(_previous, _current, _accumulator / TickSeconds);
-        _bomber.position = drawn;
-        FollowCamera(drawn);
+        _renderer.Draw(_accumulator / TickSeconds);
+        FollowCamera(_renderer.BomberDrawPosition(0));
     }
 
-    private Direction ReadInput()
+    private Direction ReadDirection()
     {
-        if (_dpad.Held != Direction.None) return _dpad.Held;
+        if (_controls.Held != Direction.None) return _controls.Held;
         if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W)) return Direction.Up;
         if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S)) return Direction.Down;
         if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A)) return Direction.Left;
@@ -72,30 +86,16 @@ public sealed class GameView : MonoBehaviour
         return Direction.None;
     }
 
-    // World space: one unit per tile, tile (x, y) centred at (x, -y) so row 0 is at the top.
-    private Vector2 BomberWorldPosition() =>
-        new Vector2(_game.Bomber.X / (float)Units.PerTile, -_game.Bomber.Y / (float)Units.PerTile);
+    private GUIStyle _banner;
 
-    private void DrawArena()
+    private void OnGUI()
     {
-        var arena = _game.Arena;
-        var parent = new GameObject("Arena").transform;
-        for (int y = 0; y < arena.Height; y++)
-        for (int x = 0; x < arena.Width; x++)
-        {
-            var tile = MakeSprite($"{arena[x, y]} ({x},{y})", PlaceholderSprites.For(arena[x, y]), 0);
-            tile.transform.SetParent(parent);
-            tile.transform.position = new Vector2(x, -y);
-        }
-    }
-
-    private static GameObject MakeSprite(string name, Sprite sprite, int order)
-    {
-        var go = new GameObject(name);
-        var renderer = go.AddComponent<SpriteRenderer>();
-        renderer.sprite = sprite;
-        renderer.sortingOrder = order;
-        return go;
+        if (_game == null || _game.Outcome == Outcome.Playing) return;
+        _banner ??= new GUIStyle(GUI.skin.box) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+        _banner.fontSize = (int)(Screen.height * 0.06f);
+        float w = Screen.width * 0.5f, h = Screen.height * 0.22f;
+        string text = _game.Outcome == Outcome.Failed ? "You died\nPress BOMB to restart" : "Stage clear!";
+        GUI.Box(new Rect((Screen.width - w) / 2, (Screen.height - h) / 2, w, h), text, _banner);
     }
 
     private void SetUpCamera()
