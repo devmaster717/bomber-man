@@ -26,12 +26,15 @@ public sealed class GameView : MonoBehaviour
     private float _accumulator;
     private bool _bombQueued, _detonateQueued, _finishedRaised;
 
-    public static GameView Begin(StageSpec spec, ulong attemptSeed, PowerUpLoadout startWith, int avatar)
+    public static GameView Begin(StageSpec spec, ulong attemptSeed, PowerUpLoadout startWith, PlayerProfile settings)
     {
         var view = new GameObject("Stage " + spec.Number).AddComponent<GameView>();
         view.Game = Game.ForStage(spec, attemptSeed);
         view.Game.ApplyLoadout(0, startWith);
         view._controls = view.gameObject.AddComponent<TouchControls>();
+        view.ApplySettings(settings);
+        int avatar = settings.Avatar;
+        view.HookFeedback();
         view._renderer = new ArenaRenderer(view.Game, avatar);
         view.SetUpCamera();
         view.FollowCamera(view._renderer.BomberDrawPosition(0));
@@ -39,6 +42,30 @@ public sealed class GameView : MonoBehaviour
     }
 
     private void OnDestroy() => _renderer?.Destroy();
+
+    /// <summary>Control layout from Settings: joystick or D-pad, button size and left-handed mirror.</summary>
+    public void ApplySettings(PlayerProfile settings)
+    {
+        _controls.UseJoystick = settings.UseJoystick;
+        _controls.LeftHanded = settings.LeftHanded;
+        _controls.Scale = settings.ButtonScalePercent / 100f;
+    }
+
+    // Sounds and vibration follow what happens in the core; the core knows nothing about them.
+    private void HookFeedback()
+    {
+        var fx = Feedback.Instance;
+        if (fx == null) return;
+        Game.BombPlaced += b => { if (b.Owner.Index == 0) fx.BombPlaced(); };
+        Game.BombExploded += b =>
+        {
+            var me = Game.Bomber.Tile;
+            fx.Explosion(nearby: Mathf.Abs(b.Tile.X - me.X) + Mathf.Abs(b.Tile.Y - me.Y) <= 3);
+        };
+        Game.BomberDied += b => { if (b.Index == 0) fx.Died(); };
+        Game.PowerUpPicked += (b, k) => { if (b.Index == 0) fx.PowerUp(); };
+        Finished += g => { if (g.Outcome == Outcome.Cleared) fx.StageClear(); };
+    }
 
     private void Update()
     {
@@ -93,12 +120,12 @@ public sealed class GameView : MonoBehaviour
         _hud.fontSize = (int)(Screen.height * 0.04f);
         long elapsed = Game.Tick / Units.TicksPerSecond;
         long target = Game.TargetTicks / Units.TicksPerSecond;
-        string hud = $"Stage {StageNumber}    Enemies: {Game.EnemiesRemaining}    Time {Ui.Clock(elapsed)}";
-        if (target > 0) hud += $"    3 stars under {Ui.Clock(target)}";
+        string hud = Text.Hud(StageNumber, Game.EnemiesRemaining, Ui.Clock(elapsed));
+        if (target > 0) hud += Text.ThreeStarsUnder(Ui.Clock(target));
         var b = Game.Bomber;
-        string held = (b.HasFireUp ? "  Fire Up" : "") + (b.BombUps > 0 ? $"  Bombs {b.MaxBombs}" : "") +
-                      (b.HasRemoteControl ? "  Remote" : "") +
-                      (b.SpeedUpTicksLeft > 0 ? $"  Speed {Mathf.CeilToInt(b.SpeedUpTicksLeft / (float)Units.TicksPerSecond)}s" : "");
+        string held = (b.HasFireUp ? "  " + Text.HeldFireUp : "") + (b.BombUps > 0 ? "  " + Text.HeldBombs(b.MaxBombs) : "") +
+                      (b.HasRemoteControl ? "  " + Text.HeldRemote : "") +
+                      (b.SpeedUpTicksLeft > 0 ? "  " + Text.HeldSpeed(Mathf.CeilToInt(b.SpeedUpTicksLeft / (float)Units.TicksPerSecond)) : "");
         if (held.Length > 0) hud += Environment.NewLine + held.Trim();
         GUI.Label(new Rect(Screen.width * 0.02f, Screen.height * 0.01f, Screen.width * 0.85f, Screen.height * 0.12f), hud, _hud);
     }

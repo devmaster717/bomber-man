@@ -2,8 +2,8 @@ using BombArena.Core;
 using UnityEngine;
 
 /// <summary>
-/// The app's screens and flow (spec section 10): home, a running stage attempt with its pause menu, and the
-/// results. Owns the player's profile and wallet; gameplay itself runs in <see cref="GameView"/>.
+/// The app's screens and flow (spec section 10): first launch, home, stage select, a running stage attempt with
+/// its pause menu, results and settings. Owns the player's profile and wallet; gameplay runs in <see cref="GameView"/>.
 /// </summary>
 public sealed class AppController : MonoBehaviour
 {
@@ -15,36 +15,41 @@ public sealed class AppController : MonoBehaviour
         Playing,
         Paused,
         Results,
+        Settings,
     }
+
+    private const int StagesPerPage = 20;
 
     private PlayerProfile _profile;
     private IWallet _wallet;
     private StageProgress _progress;
+    private Feedback _feedback;
     private ClearReward? _lastReward;
-    private int _selectPage;
-    private const int StagesPerPage = 20;
     private Page _page = Page.Home;
+    private Page _settingsReturn = Page.Home;
     private GameView _view;
     private int _stage = 1;
+    private int _selectPage;
     private int _attemptCounter;
     private string _notice;
+    private string _nicknameDraft = "";
+    private int _setupAvatar;
 
     private void Awake()
     {
         Application.targetFrameRate = 60;
         _profile = ProfileStore.Load();
-        _wallet = new LocalWallet(_profile, ProfileStore.Now, () => ProfileStore.Save(_profile));
-        _progress = new StageProgress(_profile, _wallet, () => ProfileStore.Save(_profile));
+        _wallet = new LocalWallet(_profile, ProfileStore.Now, Save);
+        _progress = new StageProgress(_profile, _wallet, Save);
+        _feedback = Feedback.Create(_profile.MusicOn, _profile.SoundOn, _profile.VibrationOn);
         _stage = _progress.HighestUnlocked;
         _selectPage = (_stage - 1) / StagesPerPage;
-        if (_wallet.RecoverInterruptedAttempt())
-            _notice = "Your last attempt was cut short, so it cost a life.";
+        if (_wallet.RecoverInterruptedAttempt()) _notice = Text.AttemptCutShort;
         if (_profile.NeedsSetup) _page = Page.Setup;
         SetHomeCamera();
     }
 
-    private string _nicknameDraft = "";
-    private int _setupAvatar;
+    private void Save() => ProfileStore.Save(_profile);
 
     private void Update()
     {
@@ -63,11 +68,13 @@ public sealed class AppController : MonoBehaviour
         if (!focused && _page == Page.Playing) Pause();
     }
 
+    // ---- flow ----
+
     private void StartAttempt(int stage)
     {
         if (!_wallet.TryStartAttempt())
         {
-            _notice = "No lives left. Wait for one to regenerate.";
+            _notice = Text.NoLives;
             GoHome();
             return;
         }
@@ -76,7 +83,7 @@ public sealed class AppController : MonoBehaviour
         _attemptCounter++;
         _lastReward = null;
         ulong attemptSeed = (ulong)System.DateTime.UtcNow.Ticks ^ (ulong)_attemptCounter;
-        _view = GameView.Begin(StageLibrary.Load(stage), attemptSeed, _progress.TakeStartingLoadout(), _profile.Avatar);
+        _view = GameView.Begin(StageLibrary.Load(stage), attemptSeed, _progress.TakeStartingLoadout(), _profile);
         _view.Finished += OnFinished;
         _page = Page.Playing;
         _notice = null;
@@ -122,6 +129,13 @@ public sealed class AppController : MonoBehaviour
         SetHomeCamera();
     }
 
+    private void OpenSettings(Page returnTo)
+    {
+        _settingsReturn = returnTo;
+        _nicknameDraft = _profile.Nickname;
+        _page = Page.Settings;
+    }
+
     private static void SetHomeCamera()
     {
         var cam = Camera.main;
@@ -130,6 +144,8 @@ public sealed class AppController : MonoBehaviour
         cam.backgroundColor = new Color(0.12f, 0.16f, 0.22f);
         cam.transform.position = new Vector3(0, 0, -10f);
     }
+
+    // ---- screens ----
 
     private void OnGUI()
     {
@@ -141,40 +157,41 @@ public sealed class AppController : MonoBehaviour
             case Page.Playing: DrawPauseButton(); break;
             case Page.Paused: DrawPauseMenu(); break;
             case Page.Results: DrawResults(); break;
+            case Page.Settings: DrawSettings(); break;
         }
     }
 
     private void DrawWalletBar()
     {
         _wallet.Refresh();
-        string lives = $"Lives {_wallet.Lives}";
-        if (_wallet.SecondsToNextLife is long s) lives += $"  (next in {Ui.Clock(s)})";
-        GUI.Label(new Rect(0, Ui.U, Screen.width, 7 * Ui.U), $"Jewels {_wallet.Jewels}      {lives}", Ui.Label);
+        string lives = Text.Lives(_wallet.Lives);
+        if (_wallet.SecondsToNextLife is long s) lives += "  " + Text.NextLifeIn(Ui.Clock(s));
+        GUI.Label(new Rect(0, Ui.U, Screen.width, 7 * Ui.U), Text.Jewels(_wallet.Jewels) + "      " + lives, Ui.Label);
     }
 
     /// <summary>First launch: choose a nickname and a free starting avatar.</summary>
     private void DrawSetup()
     {
         float w = Screen.width, u = Ui.U;
-        GUI.Label(new Rect(0, 4 * u, w, 12 * u), "Welcome to Bomb Arena!", Ui.Title);
-        GUI.Label(new Rect(0, 17 * u, w, 7 * u), $"Choose a nickname (up to {PlayerProfile.MaxNicknameLength} characters)", Ui.Label);
+        GUI.Label(new Rect(0, 4 * u, w, 12 * u), Text.Welcome, Ui.Title);
+        GUI.Label(new Rect(0, 17 * u, w, 7 * u), Text.ChooseNickname(PlayerProfile.MaxNicknameLength), Ui.Label);
         _nicknameDraft = GUI.TextField(new Rect(w * 0.3f, 25 * u, w * 0.4f, 10 * u), _nicknameDraft, PlayerProfile.MaxNicknameLength, Ui.Button);
 
-        GUI.Label(new Rect(0, 38 * u, w, 7 * u), "Pick your look (free)", Ui.Label);
-        DrawAvatarRow(46 * u, ref _setupAvatar);
+        GUI.Label(new Rect(0, 38 * u, w, 7 * u), Text.PickLookFree, Ui.Label);
+        DrawAvatarRow(46 * u, ref _setupAvatar, i => true);
 
         GUI.enabled = PlayerProfile.IsValidNickname(_nicknameDraft);
-        if (GUI.Button(new Rect(w * 0.35f, 78 * u, w * 0.3f, 12 * u), "Start", Ui.Button))
+        if (GUI.Button(new Rect(w * 0.35f, 78 * u, w * 0.3f, 12 * u), Text.Start, Ui.Button))
         {
             _profile.CompleteSetup(_nicknameDraft, _setupAvatar);
-            ProfileStore.Save(_profile);
+            Save();
             _page = Page.Home;
         }
         GUI.enabled = true;
     }
 
-    /// <summary>A row of the 10 avatars; tapping one selects it.</summary>
-    private static void DrawAvatarRow(float y, ref int selected)
+    /// <summary>A row of the 10 avatars; tapping an available one selects it.</summary>
+    private static void DrawAvatarRow(float y, ref int selected, System.Func<int, bool> available)
     {
         float u = Ui.U, size = 14 * u, gap = 2 * u;
         float total = PlayerProfile.AvatarCount * size + (PlayerProfile.AvatarCount - 1) * gap;
@@ -183,11 +200,13 @@ public sealed class AppController : MonoBehaviour
         {
             var r = new Rect(x + i * (size + gap), y, size, size);
             var old = GUI.color;
+            GUI.enabled = available(i);
             GUI.color = i == selected ? Color.white : new Color(1f, 1f, 1f, 0.45f);
             if (GUI.Button(r, GUIContent.none, Ui.Button)) selected = i;
             GUI.DrawTexture(new Rect(r.x + size * 0.15f, r.y + size * 0.15f, size * 0.7f, size * 0.7f),
                 PlaceholderSprites.BomberAvatar(i).texture, ScaleMode.ScaleToFit);
             GUI.color = old;
+            GUI.enabled = true;
         }
     }
 
@@ -197,27 +216,26 @@ public sealed class AppController : MonoBehaviour
         float u = Ui.U;
         GUI.DrawTexture(new Rect(3 * u, 2 * u, 10 * u, 10 * u), PlaceholderSprites.BomberAvatar(_profile.Avatar).texture, ScaleMode.ScaleToFit);
         GUI.Label(new Rect(14 * u, 2 * u, 40 * u, 10 * u), _profile.Nickname, Ui.Small);
-        var col = new Ui.Column(new Rect(Screen.width * 0.3f, Screen.height * 0.12f,
-            Screen.width * 0.4f, Screen.height * 0.88f), 0f);
-        GUI.Label(col.Next(14), "Bomb Arena", Ui.Title);
-        if (GUI.Button(col.Next(11), "Stage mode", Ui.Button))
+        var col = new Ui.Column(new Rect(Screen.width * 0.3f, Screen.height * 0.12f, Screen.width * 0.4f, Screen.height * 0.88f), 0f);
+        GUI.Label(col.Next(14), Text.GameTitle, Ui.Title);
+        if (GUI.Button(col.Next(11), Text.StageMode, Ui.Button))
         {
             _selectPage = (_stage - 1) / StagesPerPage;
             _page = Page.StageSelect;
         }
         GUI.enabled = false;
-        GUI.Button(col.Next(11), "Bluetooth (coming soon)", Ui.Button);
-        GUI.Button(col.Next(11), "Shop (coming soon)", Ui.Button);
-        GUI.Button(col.Next(11), "Settings (coming soon)", Ui.Button);
+        GUI.Button(col.Next(11), Text.Bluetooth + Text.ComingSoon, Ui.Button);
+        GUI.Button(col.Next(11), Text.Shop + Text.ComingSoon, Ui.Button);
         GUI.enabled = true;
+        if (GUI.Button(col.Next(11), Text.Settings, Ui.Button)) OpenSettings(Page.Home);
         if (_notice != null) GUI.Label(col.Next(10), _notice, Ui.Small);
     }
 
     private void DrawStageSelect()
     {
         DrawWalletBar();
-        float w = Screen.width, h = Screen.height, u = Ui.U;
-        GUI.Label(new Rect(0, 8 * u, w, 9 * u), "Choose a stage", Ui.Label);
+        float w = Screen.width, u = Ui.U;
+        GUI.Label(new Rect(0, 8 * u, w, 9 * u), Text.ChooseStage, Ui.Label);
 
         const int cols = 5, rows = 4;
         float gridW = w * 0.7f, cellW = gridW / cols, cellH = 15 * u, top = 18 * u, left = (w - gridW) / 2;
@@ -228,8 +246,7 @@ public sealed class AppController : MonoBehaviour
             if (n > StageLibrary.Count) break;
             var r = new Rect(left + (i % cols) * cellW + u, top + (i / cols) * (cellH + u), cellW - 2 * u, cellH);
             bool open = _progress.IsUnlocked(n);
-            int stars = _progress.BestStars(n);
-            string label = n + System.Environment.NewLine + (open ? StarText(stars) : "locked");
+            string label = n + System.Environment.NewLine + (open ? StarText(_progress.BestStars(n)) : Text.Locked);
             GUI.enabled = open;
             if (GUI.Button(r, label, Ui.Button)) StartAttempt(n);
             GUI.enabled = true;
@@ -237,12 +254,12 @@ public sealed class AppController : MonoBehaviour
 
         float by = top + rows * (cellH + u) + 2 * u, bw = 22 * u;
         GUI.enabled = _selectPage > 0;
-        if (GUI.Button(new Rect(left, by, bw, 10 * u), "< Prev", Ui.Button)) _selectPage--;
+        if (GUI.Button(new Rect(left, by, bw, 10 * u), Text.Prev, Ui.Button)) _selectPage--;
         GUI.enabled = (_selectPage + 1) * StagesPerPage < StageLibrary.Count;
-        if (GUI.Button(new Rect(left + gridW - bw, by, bw, 10 * u), "Next >", Ui.Button)) _selectPage++;
+        if (GUI.Button(new Rect(left + gridW - bw, by, bw, 10 * u), Text.Next, Ui.Button)) _selectPage++;
         GUI.enabled = true;
-        if (GUI.Button(new Rect((w - bw) / 2, by, bw, 10 * u), "Home", Ui.Button)) _page = Page.Home;
-        GUI.Label(new Rect(0, by + 10 * u, w, 6 * u), $"Stages {first}-{Mathf.Min(first + StagesPerPage - 1, StageLibrary.Count)}", Ui.Small);
+        if (GUI.Button(new Rect((w - bw) / 2, by, bw, 10 * u), Text.Home, Ui.Button)) _page = Page.Home;
+        GUI.Label(new Rect(0, by + 10 * u, w, 6 * u), Text.StageRange(first, Mathf.Min(first + StagesPerPage - 1, StageLibrary.Count)), Ui.Small);
     }
 
     private static string StarText(int stars) => stars == 0 ? "- - -" : new string('*', stars) + new string('-', 3 - stars);
@@ -250,23 +267,22 @@ public sealed class AppController : MonoBehaviour
     private void DrawPauseButton()
     {
         float s = 10 * Ui.U;
-        if (GUI.Button(new Rect(Screen.width - s - 2 * Ui.U, 2 * Ui.U, s, s), "II", Ui.Button)) Pause();
+        if (GUI.Button(new Rect(Screen.width - s - 2 * Ui.U, 2 * Ui.U, s, s), Text.PauseButton, Ui.Button)) Pause();
     }
 
     private void DrawPauseMenu()
     {
         var col = new Ui.Column(Ui.Panel(0.4f, 0.75f));
-        GUI.Label(col.Next(10), "Paused", Ui.Title);
-        if (GUI.Button(col.Next(11), "Resume", Ui.Button)) Resume();
-        if (GUI.Button(col.Next(11), "Restart (costs a life)", Ui.Button))
+        GUI.Label(col.Next(10), Text.Paused, Ui.Title);
+        if (GUI.Button(col.Next(11), Text.Resume, Ui.Button)) Resume();
+        if (GUI.Button(col.Next(11), Text.Restart, Ui.Button))
         {
             AbandonAttempt();
             StartAttempt(_stage);
+            return;
         }
-        GUI.enabled = false;
-        GUI.Button(col.Next(11), "Settings (coming soon)", Ui.Button);
-        GUI.enabled = true;
-        if (GUI.Button(col.Next(11), "Quit (costs a life)", Ui.Button))
+        if (GUI.Button(col.Next(11), Text.Settings, Ui.Button)) OpenSettings(Page.Paused);
+        if (GUI.Button(col.Next(11), Text.Quit, Ui.Button))
         {
             AbandonAttempt();
             GoHome();
@@ -279,34 +295,89 @@ public sealed class AppController : MonoBehaviour
         var col = new Ui.Column(Ui.Panel(0.55f, 0.85f));
         if (game.Outcome == Outcome.Cleared)
         {
-            GUI.Label(col.Next(10), "Stage clear!", Ui.Title);
-            GUI.Label(col.Next(7), $"Stars {game.Stars}/3    Time {Ui.Clock(game.ClearedOnTick.GetValueOrDefault() / Units.TicksPerSecond)}", Ui.Label);
+            GUI.Label(col.Next(10), Text.StageClear, Ui.Title);
+            GUI.Label(col.Next(7), Text.StarsAndTime(game.Stars, Ui.Clock(game.ClearedOnTick.GetValueOrDefault() / Units.TicksPerSecond)), Ui.Label);
             if (_lastReward is ClearReward r)
-                GUI.Label(col.Next(7), $"+{r.Total} jewels  ({r.ClearJewels} clear + {r.StarBonus} {(r.FirstThreeStars ? "first 3 stars" : "stars")})", Ui.Small);
+                GUI.Label(col.Next(7), Text.JewelsEarned(r.Total, r.ClearJewels, r.StarBonus, r.FirstThreeStars), Ui.Small);
         }
         else
         {
-            GUI.Label(col.Next(10), game.FailReason == FailReason.TimeUp ? "Time up!" : "You died", Ui.Title);
-            GUI.Label(col.Next(7), $"Lives left: {_wallet.Lives}", Ui.Label);
+            GUI.Label(col.Next(10), game.FailReason == FailReason.TimeUp ? Text.TimeUp : Text.YouDied, Ui.Title);
+            GUI.Label(col.Next(7), Text.LivesLeft(_wallet.Lives), Ui.Label);
         }
 
-        if (game.Outcome == Outcome.Cleared && _stage < StageLibrary.Count && GUI.Button(col.Next(10), "Next stage", Ui.Button))
+        if (game.Outcome == Outcome.Cleared && _stage < StageLibrary.Count && GUI.Button(col.Next(10), Text.NextStage, Ui.Button))
         {
             CloseView();
             StartAttempt(_stage + 1);
             return;
         }
-        if (GUI.Button(col.Next(10), "Play again", Ui.Button))
+        if (GUI.Button(col.Next(10), Text.PlayAgain, Ui.Button))
         {
             CloseView();
             StartAttempt(_stage);
             return;
         }
-        if (GUI.Button(col.Next(10), "Stage select", Ui.Button))
+        if (GUI.Button(col.Next(10), Text.StageSelect, Ui.Button))
         {
             CloseView();
             _page = Page.StageSelect;
             SetHomeCamera();
         }
+    }
+
+    private void DrawSettings()
+    {
+        if (_settingsReturn == Page.Paused) Ui.Panel(0.95f, 0.95f);
+        float w = Screen.width, u = Ui.U;
+        GUI.Label(new Rect(0, 3 * u, w, 10 * u), Text.Settings, Ui.Title);
+
+        // Left column: sound, vibration and controls (rows of 8, 1 apart).
+        float lx = w * 0.04f, lw = w * 0.44f;
+        Rect Row(float yU, float hU = 8) => new Rect(lx, yU * u, lw, hU * u);
+        _profile.MusicOn = Toggle(Row(13), Text.Music, _profile.MusicOn);
+        _profile.SoundOn = Toggle(Row(22), Text.SoundEffects, _profile.SoundOn);
+        _profile.VibrationOn = Toggle(Row(31), Text.Vibration, _profile.VibrationOn);
+        var row = Row(40);
+        GUI.Label(new Rect(row.x, row.y, row.width * 0.4f, row.height), Text.Controls, Ui.Label);
+        // The chosen layout is bright, the other dimmed.
+        var oldColour = GUI.color;
+        GUI.color = _profile.UseJoystick ? new Color(1f, 1f, 1f, 0.45f) : Color.white;
+        if (GUI.Button(new Rect(row.x + row.width * 0.4f, row.y, row.width * 0.3f, row.height), Text.DPad, Ui.Button)) _profile.UseJoystick = false;
+        GUI.color = _profile.UseJoystick ? Color.white : new Color(1f, 1f, 1f, 0.45f);
+        if (GUI.Button(new Rect(row.x + row.width * 0.7f, row.y, row.width * 0.3f, row.height), Text.Joystick, Ui.Button)) _profile.UseJoystick = true;
+        GUI.color = oldColour;
+        GUI.Label(Row(49, 5), Text.ButtonSize(_profile.ButtonScalePercent), Ui.Small);
+        _profile.ButtonScalePercent = Mathf.RoundToInt(GUI.HorizontalSlider(Row(55, 4), _profile.ButtonScalePercent, 75, 150) / 5f) * 5;
+        _profile.LeftHanded = Toggle(Row(60), Text.LeftHanded, _profile.LeftHanded);
+
+        // Right column: nickname.
+        float rx = w * 0.52f, rw = w * 0.44f;
+        GUI.Label(new Rect(rx, 13 * u, rw, 7 * u), Text.Nickname, Ui.Label);
+        _nicknameDraft = GUI.TextField(new Rect(rx, 22 * u, rw, 10 * u), _nicknameDraft, PlayerProfile.MaxNicknameLength, Ui.Button);
+        if (PlayerProfile.IsValidNickname(_nicknameDraft)) _profile.Nickname = PlayerProfile.CleanNickname(_nicknameDraft);
+
+        // Bottom: avatars the player owns can be chosen (more come from the shop).
+        GUI.Label(new Rect(0, 69 * u, w, 5 * u), Text.Avatar, Ui.Small);
+        int avatar = _profile.Avatar;
+        DrawAvatarRow(74 * u, ref avatar, i => _profile.OwnedAvatars.Contains(i));
+        _profile.Avatar = avatar;
+
+        _feedback.MusicOn = _profile.MusicOn;
+        _feedback.SoundOn = _profile.SoundOn;
+        _feedback.VibrationOn = _profile.VibrationOn;
+
+        if (GUI.Button(new Rect(w * 0.4f, 89 * u, w * 0.2f, 9 * u), Text.Back, Ui.Button))
+        {
+            Save();
+            if (_view != null) _view.ApplySettings(_profile);
+            _page = _settingsReturn;
+        }
+    }
+
+    private static bool Toggle(Rect r, string label, bool value)
+    {
+        GUI.Label(new Rect(r.x, r.y, r.width * 0.6f, r.height), label, Ui.Label);
+        return GUI.Button(new Rect(r.x + r.width * 0.6f, r.y, r.width * 0.4f, r.height), value ? Text.On : Text.Off, Ui.Button) ? !value : value;
     }
 }
