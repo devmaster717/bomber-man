@@ -12,6 +12,41 @@ namespace BombArena.Core
     {
         public const long StartingJewels = 1000;
         public const int StartingLives = 10;
+        public const int MaxNicknameLength = 12;
+        public const int AvatarCount = 10;
+
+        /// <summary>A nickname as it will be saved: trimmed, single spaces, no control characters, at most 12 characters.</summary>
+        public static string CleanNickname(string raw)
+        {
+            var sb = new StringBuilder();
+            bool space = false;
+            foreach (char c in (raw ?? "").Trim())
+            {
+                if (char.IsWhiteSpace(c)) { space = true; continue; }
+                if (char.IsControl(c)) continue;
+                if (space && sb.Length > 0) sb.Append(' ');
+                space = false;
+                sb.Append(c);
+            }
+            var s = sb.ToString();
+            return s.Length > MaxNicknameLength ? s.Substring(0, MaxNicknameLength).TrimEnd() : s;
+        }
+
+        public static bool IsValidNickname(string raw) => CleanNickname(raw).Length > 0;
+
+        /// <summary>True until the player has chosen a nickname and avatar (first launch).</summary>
+        public bool NeedsSetup => Nickname.Length == 0;
+
+        /// <summary>Completes first launch: saves the nickname and gives the chosen starting avatar for free.</summary>
+        public void CompleteSetup(string nickname, int avatar)
+        {
+            if (!IsValidNickname(nickname)) throw new System.ArgumentException("Nickname must have 1-12 characters");
+            if (avatar < 0 || avatar >= AvatarCount) throw new System.ArgumentOutOfRangeException(nameof(avatar));
+            Nickname = CleanNickname(nickname);
+            Avatar = avatar;
+            OwnedAvatars.Clear();
+            OwnedAvatars.Add(avatar);
+        }
 
         public long Jewels { get; set; } = StartingJewels;
         public int Lives { get; set; } = StartingLives;

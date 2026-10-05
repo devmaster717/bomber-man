@@ -9,6 +9,7 @@ public sealed class AppController : MonoBehaviour
 {
     private enum Page
     {
+        Setup,
         Home,
         StageSelect,
         Playing,
@@ -38,8 +39,12 @@ public sealed class AppController : MonoBehaviour
         _selectPage = (_stage - 1) / StagesPerPage;
         if (_wallet.RecoverInterruptedAttempt())
             _notice = "Your last attempt was cut short, so it cost a life.";
+        if (_profile.NeedsSetup) _page = Page.Setup;
         SetHomeCamera();
     }
+
+    private string _nicknameDraft = "";
+    private int _setupAvatar;
 
     private void Update()
     {
@@ -71,7 +76,7 @@ public sealed class AppController : MonoBehaviour
         _attemptCounter++;
         _lastReward = null;
         ulong attemptSeed = (ulong)System.DateTime.UtcNow.Ticks ^ (ulong)_attemptCounter;
-        _view = GameView.Begin(StageLibrary.Load(stage), attemptSeed, _progress.TakeStartingLoadout());
+        _view = GameView.Begin(StageLibrary.Load(stage), attemptSeed, _progress.TakeStartingLoadout(), _profile.Avatar);
         _view.Finished += OnFinished;
         _page = Page.Playing;
         _notice = null;
@@ -130,6 +135,7 @@ public sealed class AppController : MonoBehaviour
     {
         switch (_page)
         {
+            case Page.Setup: DrawSetup(); break;
             case Page.Home: DrawHome(); break;
             case Page.StageSelect: DrawStageSelect(); break;
             case Page.Playing: DrawPauseButton(); break;
@@ -146,9 +152,51 @@ public sealed class AppController : MonoBehaviour
         GUI.Label(new Rect(0, Ui.U, Screen.width, 7 * Ui.U), $"Jewels {_wallet.Jewels}      {lives}", Ui.Label);
     }
 
+    /// <summary>First launch: choose a nickname and a free starting avatar.</summary>
+    private void DrawSetup()
+    {
+        float w = Screen.width, u = Ui.U;
+        GUI.Label(new Rect(0, 4 * u, w, 12 * u), "Welcome to Bomb Arena!", Ui.Title);
+        GUI.Label(new Rect(0, 17 * u, w, 7 * u), $"Choose a nickname (up to {PlayerProfile.MaxNicknameLength} characters)", Ui.Label);
+        _nicknameDraft = GUI.TextField(new Rect(w * 0.3f, 25 * u, w * 0.4f, 10 * u), _nicknameDraft, PlayerProfile.MaxNicknameLength, Ui.Button);
+
+        GUI.Label(new Rect(0, 38 * u, w, 7 * u), "Pick your look (free)", Ui.Label);
+        DrawAvatarRow(46 * u, ref _setupAvatar);
+
+        GUI.enabled = PlayerProfile.IsValidNickname(_nicknameDraft);
+        if (GUI.Button(new Rect(w * 0.35f, 78 * u, w * 0.3f, 12 * u), "Start", Ui.Button))
+        {
+            _profile.CompleteSetup(_nicknameDraft, _setupAvatar);
+            ProfileStore.Save(_profile);
+            _page = Page.Home;
+        }
+        GUI.enabled = true;
+    }
+
+    /// <summary>A row of the 10 avatars; tapping one selects it.</summary>
+    private static void DrawAvatarRow(float y, ref int selected)
+    {
+        float u = Ui.U, size = 14 * u, gap = 2 * u;
+        float total = PlayerProfile.AvatarCount * size + (PlayerProfile.AvatarCount - 1) * gap;
+        float x = (Screen.width - total) / 2;
+        for (int i = 0; i < PlayerProfile.AvatarCount; i++)
+        {
+            var r = new Rect(x + i * (size + gap), y, size, size);
+            var old = GUI.color;
+            GUI.color = i == selected ? Color.white : new Color(1f, 1f, 1f, 0.45f);
+            if (GUI.Button(r, GUIContent.none, Ui.Button)) selected = i;
+            GUI.DrawTexture(new Rect(r.x + size * 0.15f, r.y + size * 0.15f, size * 0.7f, size * 0.7f),
+                PlaceholderSprites.BomberAvatar(i).texture, ScaleMode.ScaleToFit);
+            GUI.color = old;
+        }
+    }
+
     private void DrawHome()
     {
         DrawWalletBar();
+        float u = Ui.U;
+        GUI.DrawTexture(new Rect(3 * u, 2 * u, 10 * u, 10 * u), PlaceholderSprites.BomberAvatar(_profile.Avatar).texture, ScaleMode.ScaleToFit);
+        GUI.Label(new Rect(14 * u, 2 * u, 40 * u, 10 * u), _profile.Nickname, Ui.Small);
         var col = new Ui.Column(new Rect(Screen.width * 0.3f, Screen.height * 0.12f,
             Screen.width * 0.4f, Screen.height * 0.88f), 0f);
         GUI.Label(col.Next(14), "Bomb Arena", Ui.Title);
