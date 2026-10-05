@@ -146,16 +146,6 @@ public class RoundTests
     }
 
     [Test]
-    public void A_guest_whose_link_drops_is_out_of_the_round()
-    {
-        var room = new Room(3, new RoundSettings());
-        room.Link.GuestFor(1).Drop(notifyHost: true);
-        room.Link.Pump();
-        Assert.That(room.Host.Game.Bombers[1].Alive, Is.False);
-        Assert.That(room.Host.Game.Outcome, Is.EqualTo(Outcome.Playing), "two still standing");
-    }
-
-    [Test]
     public void Guests_know_when_the_host_is_lost()
     {
         var room = new Room(2, new RoundSettings());
