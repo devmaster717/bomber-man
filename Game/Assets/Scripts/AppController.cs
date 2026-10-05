@@ -10,6 +10,7 @@ public sealed class AppController : MonoBehaviour
     private enum Page
     {
         Home,
+        StageSelect,
         Playing,
         Paused,
         Results,
@@ -17,6 +18,10 @@ public sealed class AppController : MonoBehaviour
 
     private PlayerProfile _profile;
     private IWallet _wallet;
+    private StageProgress _progress;
+    private ClearReward? _lastReward;
+    private int _selectPage;
+    private const int StagesPerPage = 20;
     private Page _page = Page.Home;
     private GameView _view;
     private int _stage = 1;
@@ -28,6 +33,9 @@ public sealed class AppController : MonoBehaviour
         Application.targetFrameRate = 60;
         _profile = ProfileStore.Load();
         _wallet = new LocalWallet(_profile, ProfileStore.Now, () => ProfileStore.Save(_profile));
+        _progress = new StageProgress(_profile, _wallet, () => ProfileStore.Save(_profile));
+        _stage = _progress.HighestUnlocked;
+        _selectPage = (_stage - 1) / StagesPerPage;
         if (_wallet.RecoverInterruptedAttempt())
             _notice = "Your last attempt was cut short, so it cost a life.";
         SetHomeCamera();
@@ -61,8 +69,9 @@ public sealed class AppController : MonoBehaviour
 
         _stage = stage;
         _attemptCounter++;
+        _lastReward = null;
         ulong attemptSeed = (ulong)System.DateTime.UtcNow.Ticks ^ (ulong)_attemptCounter;
-        _view = GameView.Begin(StageLibrary.Load(stage), attemptSeed, default);
+        _view = GameView.Begin(StageLibrary.Load(stage), attemptSeed, _progress.TakeStartingLoadout());
         _view.Finished += OnFinished;
         _page = Page.Playing;
         _notice = null;
@@ -70,7 +79,9 @@ public sealed class AppController : MonoBehaviour
 
     private void OnFinished(Game game)
     {
-        _wallet.EndAttempt(cleared: game.Outcome == Outcome.Cleared);
+        bool cleared = game.Outcome == Outcome.Cleared;
+        _wallet.EndAttempt(cleared);
+        if (cleared) _lastReward = _progress.RecordClear(_stage, game.Stars, game.Bomber.Loadout);
         _page = Page.Results;
     }
 
@@ -120,6 +131,7 @@ public sealed class AppController : MonoBehaviour
         switch (_page)
         {
             case Page.Home: DrawHome(); break;
+            case Page.StageSelect: DrawStageSelect(); break;
             case Page.Playing: DrawPauseButton(); break;
             case Page.Paused: DrawPauseMenu(); break;
             case Page.Results: DrawResults(); break;
@@ -140,7 +152,11 @@ public sealed class AppController : MonoBehaviour
         var col = new Ui.Column(new Rect(Screen.width * 0.3f, Screen.height * 0.12f,
             Screen.width * 0.4f, Screen.height * 0.88f), 0f);
         GUI.Label(col.Next(14), "Bomb Arena", Ui.Title);
-        if (GUI.Button(col.Next(11), $"Stage mode (stage {_stage})", Ui.Button)) StartAttempt(_stage);
+        if (GUI.Button(col.Next(11), "Stage mode", Ui.Button))
+        {
+            _selectPage = (_stage - 1) / StagesPerPage;
+            _page = Page.StageSelect;
+        }
         GUI.enabled = false;
         GUI.Button(col.Next(11), "Bluetooth (coming soon)", Ui.Button);
         GUI.Button(col.Next(11), "Shop (coming soon)", Ui.Button);
@@ -148,6 +164,40 @@ public sealed class AppController : MonoBehaviour
         GUI.enabled = true;
         if (_notice != null) GUI.Label(col.Next(10), _notice, Ui.Small);
     }
+
+    private void DrawStageSelect()
+    {
+        DrawWalletBar();
+        float w = Screen.width, h = Screen.height, u = Ui.U;
+        GUI.Label(new Rect(0, 8 * u, w, 9 * u), "Choose a stage", Ui.Label);
+
+        const int cols = 5, rows = 4;
+        float gridW = w * 0.7f, cellW = gridW / cols, cellH = 15 * u, top = 18 * u, left = (w - gridW) / 2;
+        int first = _selectPage * StagesPerPage + 1;
+        for (int i = 0; i < StagesPerPage; i++)
+        {
+            int n = first + i;
+            if (n > StageLibrary.Count) break;
+            var r = new Rect(left + (i % cols) * cellW + u, top + (i / cols) * (cellH + u), cellW - 2 * u, cellH);
+            bool open = _progress.IsUnlocked(n);
+            int stars = _progress.BestStars(n);
+            string label = n + System.Environment.NewLine + (open ? StarText(stars) : "locked");
+            GUI.enabled = open;
+            if (GUI.Button(r, label, Ui.Button)) StartAttempt(n);
+            GUI.enabled = true;
+        }
+
+        float by = top + rows * (cellH + u) + 2 * u, bw = 22 * u;
+        GUI.enabled = _selectPage > 0;
+        if (GUI.Button(new Rect(left, by, bw, 10 * u), "< Prev", Ui.Button)) _selectPage--;
+        GUI.enabled = (_selectPage + 1) * StagesPerPage < StageLibrary.Count;
+        if (GUI.Button(new Rect(left + gridW - bw, by, bw, 10 * u), "Next >", Ui.Button)) _selectPage++;
+        GUI.enabled = true;
+        if (GUI.Button(new Rect((w - bw) / 2, by, bw, 10 * u), "Home", Ui.Button)) _page = Page.Home;
+        GUI.Label(new Rect(0, by + 10 * u, w, 6 * u), $"Stages {first}-{Mathf.Min(first + StagesPerPage - 1, StageLibrary.Count)}", Ui.Small);
+    }
+
+    private static string StarText(int stars) => stars == 0 ? "- - -" : new string('*', stars) + new string('-', 3 - stars);
 
     private void DrawPauseButton()
     {
@@ -178,11 +228,13 @@ public sealed class AppController : MonoBehaviour
     private void DrawResults()
     {
         var game = _view.Game;
-        var col = new Ui.Column(Ui.Panel(0.5f, 0.75f));
+        var col = new Ui.Column(Ui.Panel(0.55f, 0.85f));
         if (game.Outcome == Outcome.Cleared)
         {
             GUI.Label(col.Next(10), "Stage clear!", Ui.Title);
             GUI.Label(col.Next(7), $"Stars {game.Stars}/3    Time {Ui.Clock(game.ClearedOnTick.GetValueOrDefault() / Units.TicksPerSecond)}", Ui.Label);
+            if (_lastReward is ClearReward r)
+                GUI.Label(col.Next(7), $"+{r.Total} jewels  ({r.ClearJewels} clear + {r.StarBonus} {(r.FirstThreeStars ? "first 3 stars" : "stars")})", Ui.Small);
         }
         else
         {
@@ -190,11 +242,23 @@ public sealed class AppController : MonoBehaviour
             GUI.Label(col.Next(7), $"Lives left: {_wallet.Lives}", Ui.Label);
         }
 
-        if (GUI.Button(col.Next(11), "Play again", Ui.Button))
+        if (game.Outcome == Outcome.Cleared && _stage < StageLibrary.Count && GUI.Button(col.Next(10), "Next stage", Ui.Button))
+        {
+            CloseView();
+            StartAttempt(_stage + 1);
+            return;
+        }
+        if (GUI.Button(col.Next(10), "Play again", Ui.Button))
         {
             CloseView();
             StartAttempt(_stage);
+            return;
         }
-        if (GUI.Button(col.Next(11), "Home", Ui.Button)) GoHome();
+        if (GUI.Button(col.Next(10), "Stage select", Ui.Button))
+        {
+            CloseView();
+            _page = Page.StageSelect;
+            SetHomeCamera();
+        }
     }
 }
