@@ -1,0 +1,77 @@
+/// <summary>
+/// Every piece of on-screen text, in one table so the game can be translated later (English only for now).
+/// </summary>
+public static class Text
+{
+    public const string GameTitle = "Bomb Arena";
+
+    // First launch
+    public const string Welcome = "Welcome to Bomb Arena!";
+    public static string ChooseNickname(int max) => $"Choose a nickname (up to {max} characters)";
+    public const string PickLookFree = "Pick your look (free)";
+    public const string Start = "Start";
+
+    // Home
+    public const string StageMode = "Stage mode";
+    public const string Bluetooth = "Bluetooth battle";
+    public const string Shop = "Shop";
+    public const string Settings = "Settings";
+    public const string ComingSoon = " (coming soon)";
+    public static string Jewels(long n) => $"Jewels {n}";
+    public static string Lives(int n) => $"Lives {n}";
+    public static string NextLifeIn(string clock) => $"(next in {clock})";
+    public const string AttemptCutShort = "Your last attempt was cut short, so it cost a life.";
+    public const string NoLives = "No lives left. Wait for one to regenerate.";
+
+    // Stage select
+    public const string ChooseStage = "Choose a stage";
+    public const string Locked = "locked";
+    public const string Prev = "< Prev";
+    public const string Next = "Next >";
+    public const string Home = "Home";
+    public static string StageRange(int first, int last) => $"Stages {first}-{last}";
+
+    // In play
+    public static string Hud(int stage, int enemies, string time) => $"Stage {stage}    Enemies: {enemies}    Time {time}";
+    public static string ThreeStarsUnder(string clock) => $"    3 stars under {clock}";
+    public const string HeldFireUp = "Fire Up";
+    public static string HeldBombs(int n) => $"Bombs {n}";
+    public const string HeldRemote = "Remote";
+    public static string HeldSpeed(int seconds) => $"Speed {seconds}s";
+    public const string PauseButton = "II";
+    public const string BombButton = "BOMB";
+    public const string DetonateButton = "DETONATE";
+
+    // Pause
+    public const string Paused = "Paused";
+    public const string Resume = "Resume";
+    public const string Restart = "Restart (costs a life)";
+    public const string Quit = "Quit (costs a life)";
+
+    // Results
+    public const string StageClear = "Stage clear!";
+    public static string StarsAndTime(int stars, string time) => $"Stars {stars}/3    Time {time}";
+    public static string JewelsEarned(long total, long clear, long bonus, bool first3) =>
+        $"+{total} jewels  ({clear} clear + {bonus} {(first3 ? "first 3 stars" : "stars")})";
+    public const string TimeUp = "Time up!";
+    public const string YouDied = "You died";
+    public static string LivesLeft(int n) => $"Lives left: {n}";
+    public const string NextStage = "Next stage";
+    public const string PlayAgain = "Play again";
+    public const string StageSelect = "Stage select";
+
+    // Settings
+    public const string Music = "Music";
+    public const string SoundEffects = "Sound effects";
+    public const string Vibration = "Vibration";
+    public const string On = "On";
+    public const string Off = "Off";
+    public const string Controls = "Controls";
+    public const string DPad = "D-pad";
+    public const string Joystick = "Joystick";
+    public static string ButtonSize(int percent) => $"Button size {percent}%";
+    public const string LeftHanded = "Left-handed";
+    public const string Nickname = "Nickname";
+    public const string Avatar = "Avatar";
+    public const string Back = "Back";
+}

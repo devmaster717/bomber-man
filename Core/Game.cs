@@ -62,6 +62,12 @@ namespace BombArena.Core
         /// <summary>Raised when a bomb explodes (for sound, vibration and effects in the view).</summary>
         public event Action<Bomb> BombExploded;
 
+        /// <summary>Raised when a bomb is placed.</summary>
+        public event Action<Bomb> BombPlaced;
+
+        /// <summary>Raised when a bomber dies.</summary>
+        public event Action<Bomber> BomberDied;
+
         public Game(Arena arena, params TilePos[] spawns) : this(arena, 0UL, spawns)
         {
         }
@@ -247,7 +253,9 @@ namespace BombArena.Core
 
             // With Remote Control the bomber keeps one remote bomb out; other bombs are normal.
             bool remote = bomber.HasRemoteControl && !_bombs.Exists(b => b.Owner == bomber && b.IsRemote);
-            _bombs.Add(new Bomb(bomber, tile, bomber.BlastRange, remote ? (int?)null : Bomb.FuseTicks));
+            var bomb = new Bomb(bomber, tile, bomber.BlastRange, remote ? (int?)null : Bomb.FuseTicks);
+            _bombs.Add(bomb);
+            BombPlaced?.Invoke(bomb);
             return true;
         }
 
@@ -334,6 +342,7 @@ namespace BombArena.Core
             // A dead bomber's remote bomb gets a normal fuse from now.
             foreach (var b in _bombs)
                 if (b.Owner == bomber && b.IsRemote) b.FuseLeft = Bomb.FuseTicks;
+            BomberDied?.Invoke(bomber);
         }
 
         private static readonly (int dx, int dy)[] Directions = { (1, 0), (-1, 0), (0, 1), (0, -1) };
