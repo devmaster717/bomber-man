@@ -26,11 +26,15 @@ namespace BombArena.Core
         private bool _exitUncovering, _runnersTriggered;
         private int _runnersWaiting;
 
-        /// <summary>A single-player stage attempt built from its spec. The same spec always gives the same start.</summary>
-        public static Game ForStage(StageSpec spec)
+        /// <summary>
+        /// A single-player stage attempt built from its spec. The layout, enemies and exit come from the stage seed
+        /// and are the same on every attempt; the hidden power-up and enemy decisions come from <paramref name="attemptSeed"/>.
+        /// </summary>
+        public static Game ForStage(StageSpec spec, ulong? attemptSeed = null)
         {
+            ulong attempt = attemptSeed ?? spec.Seed;
             var arena = Arena.Generate(spec.Width, spec.Height, spec.Seed, playerCount: 1, spec.SoftBlockPercent);
-            var game = new Game(arena, spec.Seed, Arena.SpawnTiles(spec.Width, spec.Height, 1)[0])
+            var game = new Game(arena, attempt, Arena.SpawnTiles(spec.Width, spec.Height, 1)[0])
             {
                 TargetTicks = spec.TargetSeconds * Units.TicksPerSecond,
                 RunnersFromExit = spec.RunnersFromExit,
@@ -39,6 +43,7 @@ namespace BombArena.Core
             foreach (var g in spec.Enemies) groups.Add((g.Kind, g.Count));
             game.PlaceEnemies(spec.Seed, groups);
             game.PlaceExit(spec.Seed);
+            game.HidePowerUp(attempt);
             return game;
         }
 

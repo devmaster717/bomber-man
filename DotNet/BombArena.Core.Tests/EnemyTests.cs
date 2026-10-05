@@ -116,7 +116,7 @@ public class EnemyTests
         g.Step(Direction.None, placeBomb: true);
         for (int i = 0; i < 10; i++) g.Step(Direction.Down); // bomber escapes to (1,3)
         // Keep the walker in range: put it back next to the bomb just before the blast.
-        while (g.Bombs.Count > 0)
+        while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing)
         {
             walker.X = 2 * T; walker.Y = 1 * T; walker.Heading = Direction.None;
             g.Step(Direction.None);

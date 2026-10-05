@@ -23,6 +23,37 @@ public static class PlaceholderSprites
     public static Sprite Fire => _fire ??= Make(FirePixel);
 
     private static Sprite _bomb, _fire, _exitShut, _exitOpen;
+    private static readonly Sprite[] _powerUps = new Sprite[4];
+
+    public static Sprite PowerUp(PowerUpKind kind) =>
+        _powerUps[(int)kind] ??= Make((x, y) => PowerUpPixel(x, y, kind));
+
+    // A rounded panel with a symbol per kind.
+    private static Color PowerUpPixel(int x, int y, PowerUpKind kind)
+    {
+        if (x == 0 || y == 0 || x == Size - 1 || y == Size - 1) return Color.clear;
+        bool border = x == 1 || y == 1 || x == Size - 2 || y == Size - 2;
+        var panel = kind switch
+        {
+            PowerUpKind.FireUp => Hex("#C2410C"),
+            PowerUpKind.BombUp => Hex("#1D4ED8"),
+            PowerUpKind.RemoteControl => Hex("#7E22CE"),
+            _ => Hex("#15803D"),
+        };
+        if (border) return Hex("#FDE68A");
+        bool symbol = kind switch
+        {
+            // flame: a teardrop
+            PowerUpKind.FireUp => (x - 7.5f) * (x - 7.5f) + (y - 6f) * (y - 6f) <= 9f || (y > 6 && y < 12 && System.Math.Abs(x - 7.5f) <= (12 - y) * 0.6f),
+            // bomb with a plus
+            PowerUpKind.BombUp => (x - 6f) * (x - 6f) + (y - 6f) * (y - 6f) <= 9f || (x == 11 && y >= 9 && y <= 13) || (y == 11 && x >= 9 && x <= 13),
+            // antenna and box
+            PowerUpKind.RemoteControl => (x >= 5 && x <= 10 && y >= 3 && y <= 8) || (x == 8 && y > 8 && y <= 12) || (y == 12 && x >= 7 && x <= 9),
+            // arrow pointing right
+            _ => (y >= 6 && y <= 9 && x >= 3 && x <= 9) || (x >= 9 && x <= 12 && System.Math.Abs(y - 7.5f) <= 12 - x + 0.5f),
+        };
+        return symbol ? Color.white : panel;
+    }
 
     public static Sprite Exit(bool open) => open ? _exitOpen ??= Make((x, y) => ExitPixel(x, y, true)) : _exitShut ??= Make((x, y) => ExitPixel(x, y, false));
 

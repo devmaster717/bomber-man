@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public sealed class ArenaRenderer
 {
-    private const int TileOrder = 0, ExitOrder = 1, FireOrder = 5, BombOrder = 6, EnemyOrder = 9, BomberOrder = 10;
+    private const int TileOrder = 0, ExitOrder = 1, PowerUpOrder = 2, FireOrder = 5, BombOrder = 6, EnemyOrder = 9, BomberOrder = 10;
 
     private readonly Game _game;
     private readonly Transform _root;
@@ -16,6 +16,7 @@ public sealed class ArenaRenderer
     private readonly Tile[] _drawnTiles;
     private readonly SpriteRenderer[] _fire;
     private readonly List<SpriteRenderer> _bombPool = new List<SpriteRenderer>();
+    private readonly List<SpriteRenderer> _powerUpPool = new List<SpriteRenderer>();
     private readonly SpriteRenderer[] _bombers;
     private readonly SpriteRenderer _exit;
     private readonly Vector2[] _previous, _current;
@@ -113,11 +114,24 @@ public sealed class ArenaRenderer
             var r = _bombPool[b++];
             r.enabled = true;
             r.transform.position = new Vector2(bomb.Tile.X, -bomb.Tile.Y);
-            // Pulse as the fuse burns down.
+            // Pulse as the fuse burns down; remote bombs sit still with a red tint.
             float pulse = bomb.FuseLeft is int left ? 1f + 0.08f * Mathf.Sin(left * 0.9f) : 1f;
             r.transform.localScale = new Vector3(pulse, pulse, 1f);
+            r.color = bomb.IsRemote ? new Color(1f, 0.55f, 0.55f) : Color.white;
         }
         for (; b < _bombPool.Count; b++) _bombPool[b].enabled = false;
+
+        int p = 0;
+        foreach (var powerUp in _game.PowerUps)
+        {
+            if (!powerUp.Revealed || powerUp.Kind is not PowerUpKind kind) continue;
+            if (p == _powerUpPool.Count) _powerUpPool.Add(Make("Power-up", PlaceholderSprites.PowerUp(kind), PowerUpOrder, Vector2.zero));
+            var r = _powerUpPool[p++];
+            r.enabled = true;
+            r.sprite = PlaceholderSprites.PowerUp(kind);
+            r.transform.position = new Vector2(powerUp.Tile.X, -powerUp.Tile.Y);
+        }
+        for (; p < _powerUpPool.Count; p++) _powerUpPool[p].enabled = false;
 
         SyncEnemyList();
         for (int i = 0; i < _enemies.Count; i++)

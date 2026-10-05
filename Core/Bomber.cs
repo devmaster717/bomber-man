@@ -27,13 +27,72 @@ namespace BombArena.Core
         /// <summary>The tick on which the bomber died, if it has.</summary>
         public long? DiedOnTick { get; internal set; }
 
-        public int SpeedPerTick => Units.SpeedPerTick(BaseTilesPerSecond);
+        /// <summary>Most bombs a bomber can have on the arena at once, however many Bomb Ups it holds.</summary>
+        public const int BombCap = 4;
 
-        /// <summary>Bombs the bomber may have on the arena at once.</summary>
-        public int MaxBombs => 1;
+        /// <summary>Speed Up lasts 60 seconds.</summary>
+        public const int SpeedUpTicks = 60 * Units.TicksPerSecond;
 
-        /// <summary>Tiles the fire reaches in each direction.</summary>
-        public int BlastRange => 1;
+        public bool HasFireUp { get; internal set; }
+        public int BombUps { get; internal set; }
+        public bool HasRemoteControl { get; internal set; }
+
+        /// <summary>Ticks of Speed Up left; 0 when not active.</summary>
+        public int SpeedUpTicksLeft { get; internal set; }
+
+        /// <summary>4 tiles/s, doubled to 8 while Speed Up is active.</summary>
+        public int SpeedPerTick => Units.SpeedPerTick(SpeedUpTicksLeft > 0 ? 2 * BaseTilesPerSecond : BaseTilesPerSecond);
+
+        /// <summary>Bombs the bomber may have on the arena at once: 1 plus one per Bomb Up, at most 4.</summary>
+        public int MaxBombs => System.Math.Min(BombCap, 1 + BombUps);
+
+        /// <summary>Tiles the fire reaches in each direction: 1, or 2 with Fire Up.</summary>
+        public int BlastRange => HasFireUp ? 2 : 1;
+
+        /// <summary>The power-ups the bomber holds now, e.g. to carry into the next stage.</summary>
+        public PowerUpLoadout Loadout => new PowerUpLoadout
+        {
+            FireUp = HasFireUp,
+            BombUps = BombUps,
+            RemoteControl = HasRemoteControl,
+            SpeedUpTicksLeft = SpeedUpTicksLeft,
+        };
+
+        /// <summary>Whether picking up a power-up of this kind would change anything.</summary>
+        public bool CanUse(PowerUpKind kind) => kind switch
+        {
+            PowerUpKind.FireUp => !HasFireUp,
+            PowerUpKind.BombUp => MaxBombs < BombCap,
+            PowerUpKind.RemoteControl => !HasRemoteControl,
+            _ => true,
+        };
+
+        internal void Apply(PowerUpKind kind)
+        {
+            switch (kind)
+            {
+                case PowerUpKind.FireUp: HasFireUp = true; break;
+                case PowerUpKind.BombUp: if (MaxBombs < BombCap) BombUps++; break;
+                case PowerUpKind.RemoteControl: HasRemoteControl = true; break;
+                case PowerUpKind.SpeedUp: SpeedUpTicksLeft = SpeedUpTicks; break;
+            }
+        }
+
+        internal void Apply(PowerUpLoadout loadout)
+        {
+            HasFireUp |= loadout.FireUp;
+            BombUps = System.Math.Min(BombCap - 1, BombUps + loadout.BombUps);
+            HasRemoteControl |= loadout.RemoteControl;
+            SpeedUpTicksLeft = System.Math.Max(SpeedUpTicksLeft, loadout.SpeedUpTicksLeft);
+        }
+
+        internal void LoseAllPowerUps()
+        {
+            HasFireUp = false;
+            BombUps = 0;
+            HasRemoteControl = false;
+            SpeedUpTicksLeft = 0;
+        }
 
         public Bomber(int index, TilePos spawn)
         {

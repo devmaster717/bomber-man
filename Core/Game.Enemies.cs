@@ -100,9 +100,6 @@ namespace BombArena.Core
             return true;
         }
 
-        /// <summary>Power-ups arrive in a later slice; until then no tile holds one.</summary>
-        private bool HasPowerUpAt(TilePos t) => false;
-
         /// <summary>
         /// Whether fire touches an enemy. A Wall-passer inside a soft block is immune to the blast that hits that
         /// block, so fire that came from a destroyed soft block does not count for it.

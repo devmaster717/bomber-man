@@ -173,11 +173,17 @@ namespace BombArena.Core
                 if (inputs[i].PlaceBomb && _bombers[i].Alive)
                     TryPlaceBomb(_bombers[i]);
 
-            // Fuses, explosions and chains
+            // Fuses, Detonate, explosions and chains
             var exploding = new List<Bomb>();
             foreach (var bomb in _bombs)
             {
-                if (bomb.FuseLeft == null) continue;
+                if (bomb.FuseLeft == null)
+                {
+                    int owner = bomb.Owner.Index;
+                    if (owner < inputs.Length && inputs[owner].Detonate && bomb.Owner.Alive && bomb.Owner.HasRemoteControl)
+                        exploding.Add(bomb);
+                    continue;
+                }
                 bomb.FuseLeft--;
                 if (bomb.FuseLeft <= 0) exploding.Add(bomb);
             }
@@ -195,10 +201,15 @@ namespace BombArena.Core
                     if (enemy.Alive && enemy.Present && enemy.Touches(bomber)) { Kill(bomber); break; }
             }
 
+            PickUpPowerUps();
+
             // Timers
             for (int i = 0; i < _fire.Length; i++)
                 if (_fire[i] > 0) _fire[i]--;
+            foreach (var bomber in _bombers)
+                if (bomber.SpeedUpTicksLeft > 0) bomber.SpeedUpTicksLeft--;
             UpdateExit();
+            UpdatePowerUps();
 
             Tick++;
 
@@ -234,7 +245,9 @@ namespace BombArena.Core
                 if (b.Owner == bomber) mine++;
             if (mine >= bomber.MaxBombs) return false;
 
-            _bombs.Add(new Bomb(bomber, tile, bomber.BlastRange, Bomb.FuseTicks));
+            // With Remote Control the bomber keeps one remote bomb out; other bombs are normal.
+            bool remote = bomber.HasRemoteControl && !_bombs.Exists(b => b.Owner == bomber && b.IsRemote);
+            _bombs.Add(new Bomb(bomber, tile, bomber.BlastRange, remote ? (int?)null : Bomb.FuseTicks));
             return true;
         }
 
@@ -282,6 +295,7 @@ namespace BombArena.Core
             {
                 Arena.DestroySoftBlock(t);
                 if (t == ExitTile) _exitUncovering = true;
+                OnSoftBlockDestroyed(t);
             }
 
             foreach (var bomb in done)
@@ -295,6 +309,7 @@ namespace BombArena.Core
         {
             _fire[t.Y * Arena.Width + t.X] = FireTicks;
             _fireFromSoftBlock[t.Y * Arena.Width + t.X] = false;
+            OnFire(t);
             if (ExitRevealed && t == ExitTile && !_runnersTriggered)
             {
                 _runnersTriggered = true;
@@ -315,6 +330,10 @@ namespace BombArena.Core
         {
             bomber.Alive = false;
             bomber.DiedOnTick = Tick;
+            bomber.LoseAllPowerUps();
+            // A dead bomber's remote bomb gets a normal fuse from now.
+            foreach (var b in _bombs)
+                if (b.Owner == bomber && b.IsRemote) b.FuseLeft = Bomb.FuseTicks;
         }
 
         private static readonly (int dx, int dy)[] Directions = { (1, 0), (-1, 0), (0, 1), (0, -1) };

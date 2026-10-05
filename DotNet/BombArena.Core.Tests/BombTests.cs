@@ -139,7 +139,7 @@ public class BombTests
         g.Step(new BomberInput(Direction.None, placeBomb: true), BomberInput.None);
         for (int i = 0; i < 5; i++) g.Step(new BomberInput(Direction.Right), BomberInput.None); // bomber 0 to (2,1)
         for (int i = 0; i < 5; i++) g.Step(new BomberInput(Direction.Right), BomberInput.None); // (3,1)
-        while (g.Bombs.Count > 0) g.Step(BomberInput.None, BomberInput.None);
+        while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing) g.Step(BomberInput.None, BomberInput.None);
         Assert.That(g.IsBurning(2, 1));
         for (int i = 0; i < Game.FireTicks - 1; i++) g.Step(BomberInput.None, BomberInput.None);
         Assert.That(g.IsBurning(2, 1), Is.False, "fire is gone after 0.5 s");
@@ -156,7 +156,7 @@ public class BombTests
         var g = new Game(arena, new TilePos(1, 1), new TilePos(7, 1));
         g.Step(new BomberInput(Direction.None, placeBomb: true), BomberInput.None);
         for (int i = 0; i < 10; i++) g.Step(new BomberInput(Direction.Right), BomberInput.None); // to (3,1)
-        while (g.Bombs.Count > 0) g.Step(BomberInput.None, BomberInput.None);
+        while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing) g.Step(BomberInput.None, BomberInput.None);
         Assert.That(g.Bomber.Alive, "out of range at (3,1)");
         g.Step(new BomberInput(Direction.Left), BomberInput.None); // hitbox now reaches into (2,1), still burning
         g.Step(new BomberInput(Direction.Left), BomberInput.None);

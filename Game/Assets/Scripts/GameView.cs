@@ -22,6 +22,7 @@ public sealed class GameView : MonoBehaviour
     private const float TickSeconds = 1f / Units.TicksPerSecond;
 
     private Game _game;
+    private int _attempt;
     private ArenaRenderer _renderer;
     private TouchControls _controls;
     private Camera _camera;
@@ -45,6 +46,7 @@ public sealed class GameView : MonoBehaviour
     private void StartAttempt()
     {
         _renderer?.Destroy();
+        _attempt++;
         _game = Game.ForStage(new StageSpec
         {
             Width = width, Height = height, Seed = (ulong)seed, SoftBlockPercent = softBlockPercent,
@@ -55,7 +57,7 @@ public sealed class GameView : MonoBehaviour
                 new EnemyGroup(EnemyKind.WallPasser, wallPassers),
             },
             TargetSeconds = targetSeconds, RunnersFromExit = runnersFromExit,
-        });
+        }, attemptSeed: (ulong)System.DateTime.UtcNow.Ticks ^ (ulong)_attempt);
         _renderer = new ArenaRenderer(_game);
         _accumulator = 0f;
         _bombQueued = _detonateQueued = false;
@@ -68,6 +70,8 @@ public sealed class GameView : MonoBehaviour
         // Presses are latched until the next tick consumes them, so a quick tap is never lost.
         _bombQueued |= _controls.BombPressed || Input.GetKeyDown(KeyCode.Space);
         _detonateQueued |= _controls.DetonatePressed || Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.E);
+
+        _controls.ShowDetonate = _game.Bomber.HasRemoteControl && _game.Outcome == Outcome.Playing;
 
         if (_game.Outcome == Outcome.Playing)
         {
@@ -112,7 +116,12 @@ public sealed class GameView : MonoBehaviour
         float target = _game.TargetTicks / (float)Units.TicksPerSecond;
         string hud = $"Enemies: {_game.EnemiesRemaining}    Time {Clock(elapsed)}";
         if (target > 0) hud += $"    3 stars under {Clock(target)}";
-        GUI.Label(new Rect(Screen.width * 0.02f, Screen.height * 0.01f, Screen.width * 0.9f, Screen.height * 0.06f), hud, _hud);
+        var b = _game.Bomber;
+        string held = (b.HasFireUp ? "  Fire Up" : "") + (b.BombUps > 0 ? $"  Bombs {b.MaxBombs}" : "") +
+                      (b.HasRemoteControl ? "  Remote" : "") +
+                      (b.SpeedUpTicksLeft > 0 ? $"  Speed {Mathf.CeilToInt(b.SpeedUpTicksLeft / (float)Units.TicksPerSecond)}s" : "");
+        if (held.Length > 0) hud += System.Environment.NewLine + held.Trim();
+        GUI.Label(new Rect(Screen.width * 0.02f, Screen.height * 0.01f, Screen.width * 0.9f, Screen.height * 0.12f), hud, _hud);
 
         if (_game.Outcome == Outcome.Playing) return;
         _banner ??= new GUIStyle(GUI.skin.box) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };

@@ -136,7 +136,7 @@ public class SpecialEnemyTests
             for (int i = 0; i < 10; i++) g.Step(Direction.Down); // bomber hides at (3,3)
             var p = g.AddEnemy(EnemyKind.Phantom, new TilePos(4, 1));
             p.Phase = phase; p.PhaseTicksLeft = 1000; p.PhaseLength = 1000;
-            while (g.Bombs.Count > 0) g.Step(Direction.None);
+            while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing) g.Step(Direction.None);
             Assert.That(p.Alive, Is.EqualTo(phase == PhantomPhase.Vanished), phase.ToString());
         }
     }
@@ -172,7 +172,7 @@ public class SpecialEnemyTests
         g.Step(Direction.None, placeBomb: true);
         for (int i = 0; i < 5; i++) g.Step(Direction.Left);
         for (int i = 0; i < 10; i++) g.Step(Direction.Down); // bomber hides at (1,3)
-        while (g.Bombs.Count > 0)
+        while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing)
         {
             w.X = 3 * T; w.Y = 1 * T; w.Heading = Direction.None; // keep it inside the block
             g.Step(Direction.None);
@@ -188,7 +188,7 @@ public class SpecialEnemyTests
         g.Step(Direction.None, placeBomb: true);
         for (int i = 0; i < 10; i++) g.Step(Direction.Down);
         var w = g.AddEnemy(EnemyKind.WallPasser, new TilePos(4, 1));
-        while (g.Bombs.Count > 0)
+        while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing)
         {
             w.X = 4 * T; w.Y = 1 * T; w.Heading = Direction.None;
             g.Step(Direction.None);
