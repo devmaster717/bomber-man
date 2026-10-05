@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public sealed class ArenaRenderer
 {
-    private const int TileOrder = 0, FireOrder = 5, BombOrder = 6, EnemyOrder = 9, BomberOrder = 10;
+    private const int TileOrder = 0, ExitOrder = 1, FireOrder = 5, BombOrder = 6, EnemyOrder = 9, BomberOrder = 10;
 
     private readonly Game _game;
     private readonly Transform _root;
@@ -17,6 +17,7 @@ public sealed class ArenaRenderer
     private readonly SpriteRenderer[] _fire;
     private readonly List<SpriteRenderer> _bombPool = new List<SpriteRenderer>();
     private readonly SpriteRenderer[] _bombers;
+    private readonly SpriteRenderer _exit;
     private readonly Vector2[] _previous, _current;
     private readonly List<SpriteRenderer> _enemies = new List<SpriteRenderer>();
     private readonly List<Vector2> _enemyPrevious = new List<Vector2>(), _enemyCurrent = new List<Vector2>();
@@ -39,6 +40,10 @@ public sealed class ArenaRenderer
             _fire[i] = Make($"Fire ({x},{y})", PlaceholderSprites.Fire, FireOrder, new Vector2(x, -y));
             _fire[i].enabled = false;
         }
+
+        _exit = Make("Exit", PlaceholderSprites.Exit(false), ExitOrder,
+            game.ExitTile is TilePos e ? new Vector2(e.X, -e.Y) : Vector2.zero);
+        _exit.enabled = false;
 
         _bombers = new SpriteRenderer[game.Bombers.Count];
         _previous = new Vector2[game.Bombers.Count];
@@ -97,6 +102,9 @@ public sealed class ArenaRenderer
             }
             _fire[i].enabled = _game.IsBurning(x, y);
         }
+
+        _exit.enabled = _game.ExitRevealed;
+        if (_game.ExitRevealed) _exit.sprite = PlaceholderSprites.Exit(_game.ExitOpen);
 
         int b = 0;
         foreach (var bomb in _game.Bombs)

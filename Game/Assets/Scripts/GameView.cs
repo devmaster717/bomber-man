@@ -12,6 +12,8 @@ public sealed class GameView : MonoBehaviour
     [SerializeField] private int seed = 1;
     [SerializeField, Range(0, 100)] private int softBlockPercent = Arena.DefaultSoftBlockPercent;
     [SerializeField] private int walkers = 4;
+    [SerializeField] private int targetSeconds = 90;
+    [SerializeField] private int runnersFromExit = 2;
 
     /// <summary>Most tiles shown vertically; larger arenas scroll.</summary>
     private const float MaxVisibleTilesHigh = 11f;
@@ -41,7 +43,12 @@ public sealed class GameView : MonoBehaviour
     private void StartAttempt()
     {
         _renderer?.Destroy();
-        _game = Game.Create(width, height, (ulong)seed, softBlockPercent, walkers);
+        _game = Game.ForStage(new StageSpec
+        {
+            Width = width, Height = height, Seed = (ulong)seed, SoftBlockPercent = softBlockPercent,
+            Enemies = { new EnemyGroup(EnemyKind.Walker, walkers) },
+            TargetSeconds = targetSeconds, RunnersFromExit = runnersFromExit,
+        });
         _renderer = new ArenaRenderer(_game);
         _accumulator = 0f;
         _bombQueued = _detonateQueued = false;
@@ -94,16 +101,23 @@ public sealed class GameView : MonoBehaviour
         if (_game == null) return;
         _hud ??= new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold };
         _hud.fontSize = (int)(Screen.height * 0.04f);
-        GUI.Label(new Rect(Screen.width * 0.02f, Screen.height * 0.01f, Screen.width * 0.5f, Screen.height * 0.06f),
-            $"Enemies: {_game.EnemiesRemaining}", _hud);
+        float elapsed = _game.Tick / (float)Units.TicksPerSecond;
+        float target = _game.TargetTicks / (float)Units.TicksPerSecond;
+        string hud = $"Enemies: {_game.EnemiesRemaining}    Time {Clock(elapsed)}";
+        if (target > 0) hud += $"    3 stars under {Clock(target)}";
+        GUI.Label(new Rect(Screen.width * 0.02f, Screen.height * 0.01f, Screen.width * 0.9f, Screen.height * 0.06f), hud, _hud);
 
         if (_game.Outcome == Outcome.Playing) return;
         _banner ??= new GUIStyle(GUI.skin.box) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
         _banner.fontSize = (int)(Screen.height * 0.06f);
-        float w = Screen.width * 0.5f, h = Screen.height * 0.22f;
-        string text = _game.Outcome == Outcome.Failed ? "You died\nPress BOMB to restart" : "Stage clear!";
+        float w = Screen.width * 0.55f, h = Screen.height * 0.3f;
+        string text = _game.Outcome == Outcome.Cleared
+            ? $"Stage clear!  Stars: {_game.Stars}/3\nTime {Clock(_game.ClearedOnTick.GetValueOrDefault() / (float)Units.TicksPerSecond)}\nPress BOMB to play again"
+            : (_game.FailReason == FailReason.TimeUp ? "Time up!" : "You died") + "\nPress BOMB to restart";
         GUI.Box(new Rect((Screen.width - w) / 2, (Screen.height - h) / 2, w, h), text, _banner);
     }
+
+    private static string Clock(float seconds) => $"{(int)seconds / 60}:{(int)seconds % 60:00}";
 
     private void SetUpCamera()
     {

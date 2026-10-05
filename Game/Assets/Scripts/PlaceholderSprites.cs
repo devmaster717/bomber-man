@@ -22,7 +22,17 @@ public static class PlaceholderSprites
     public static Sprite Bomb => _bomb ??= Make(BombPixel);
     public static Sprite Fire => _fire ??= Make(FirePixel);
 
-    private static Sprite _bomb, _fire;
+    private static Sprite _bomb, _fire, _exitShut, _exitOpen;
+
+    public static Sprite Exit(bool open) => open ? _exitOpen ??= Make((x, y) => ExitPixel(x, y, true)) : _exitShut ??= Make((x, y) => ExitPixel(x, y, false));
+
+    private static Color ExitPixel(int x, int y, bool open)
+    {
+        bool frame = x <= 1 || x >= 14 || y >= 14;
+        if (frame) return Hex("#D9C27A");
+        if (open) return (x + y) % 3 == 0 ? Hex("#FFF6C2") : Hex("#F2D45C");
+        return x == 10 && y == 7 ? Hex("#D9C27A") : Hex("#3B2A1A");
+    }
     private static readonly Sprite[] _enemies = new Sprite[4];
 
     public static Sprite Enemy(EnemyKind kind)

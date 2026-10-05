@@ -10,12 +10,19 @@ namespace BombArena.Core
         Cleared,
     }
 
+    public enum FailReason
+    {
+        None,
+        Died,
+        TimeUp,
+    }
+
     /// <summary>
     /// The state of one stage attempt or round, advanced one fixed tick at a time. The view reads this state
     /// and never changes it; all rules live here. Tick order (spec section 11): inputs → movement → bomb
     /// placement → fuses → explosions and chains → deaths → timers → win/lose checks.
     /// </summary>
-    public sealed class Game
+    public sealed partial class Game
     {
         /// <summary>Fire stays deadly for 0.5 seconds.</summary>
         public const int FireTicks = Units.TicksPerSecond / 2;
@@ -49,6 +56,7 @@ namespace BombArena.Core
         public long Tick { get; private set; }
 
         public Outcome Outcome { get; private set; } = Outcome.Playing;
+        public FailReason FailReason { get; private set; } = FailReason.None;
 
         /// <summary>Raised when a bomb explodes (for sound, vibration and effects in the view).</summary>
         public event Action<Bomb> BombExploded;
@@ -188,12 +196,23 @@ namespace BombArena.Core
             // Timers
             for (int i = 0; i < _fire.Length; i++)
                 if (_fire[i] > 0) _fire[i]--;
+            UpdateExit();
 
             Tick++;
 
             // Win/lose checks
             if (!_bombers[0].Alive)
-                Outcome = Outcome.Failed;
+                Fail(FailReason.Died);
+            else if (ExitOpen && _bombers[0].Tile == ExitTile)
+                Clear();
+            else if (TargetTicks > 0 && Tick >= 3L * TargetTicks)
+                Fail(FailReason.TimeUp);
+        }
+
+        private void Fail(FailReason reason)
+        {
+            Outcome = Outcome.Failed;
+            FailReason = reason;
         }
 
         private void ReleaseBombsOwnersLeft()
@@ -257,7 +276,10 @@ namespace BombArena.Core
             }
 
             foreach (var t in softHit)
+            {
                 Arena.DestroySoftBlock(t);
+                if (t == ExitTile) _exitUncovering = true;
+            }
 
             foreach (var bomb in done)
             {
@@ -266,7 +288,15 @@ namespace BombArena.Core
             }
         }
 
-        private void SetFire(TilePos t) => _fire[t.Y * Arena.Width + t.X] = FireTicks;
+        private void SetFire(TilePos t)
+        {
+            _fire[t.Y * Arena.Width + t.X] = FireTicks;
+            if (ExitRevealed && t == ExitTile && !_runnersTriggered)
+            {
+                _runnersTriggered = true;
+                _runnersWaiting = RunnersFromExit;
+            }
+        }
 
         private bool TouchesFire(TilePos centre, Func<TilePos, bool> hitboxOverlaps)
         {
