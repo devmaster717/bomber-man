@@ -91,7 +91,9 @@ namespace BombArena.Core.Net
             _peers = new List<int>(guestPeers);
             Players = players;
             Settings = settings.Clone();
-            Game = Game.ForRound(settings.Width, settings.Height, players.Count, settings.TimeLimitSeconds, seed);
+            Game = Game.ForRound(settings.Width, settings.Height, players.Count, settings.TimeLimitSeconds, seed, settings.EnemiesOn);
+            // Power-ups each player bought in the shop start the round with them.
+            for (int i = 0; i < players.Count; i++) Game.ApplyLoadout(i, players[i].Inventory);
             _move = new Direction[players.Count];
             _bomb = new bool[players.Count];
             _detonate = new bool[players.Count];
@@ -206,7 +208,8 @@ namespace BombArena.Core.Net
             Settings = settings;
             YourIndex = you;
             Players = players;
-            Game = Game.ForRound(settings.Width, settings.Height, players.Count, settings.TimeLimitSeconds, seed);
+            Game = Game.ForRound(settings.Width, settings.Height, players.Count, settings.TimeLimitSeconds, seed, settings.EnemiesOn);
+            for (int i = 0; i < players.Count; i++) Game.ApplyLoadout(i, players[i].Inventory);
             _transport.Received += OnReceived;
             _transport.Disconnected += OnDisconnected;
         }

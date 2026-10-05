@@ -132,6 +132,9 @@ public sealed class BattleScreens
     {
         _fee = _wallet.TrySpendJewels(fee) ? fee : 0;
         _payout = 0;
+        // Bought power-ups were sent with this player's Hello and are now in play on the host.
+        _profile.Inventory = default;
+        ProfileStore.Save(_profile);
     }
 
     /// <summary>This phone settles its own wallet: the winner takes the pot, a draw refunds, a lost host refunds nobody.</summary>
@@ -244,7 +247,7 @@ public sealed class BattleScreens
         GUI.Label(new Rect(0, 61 * u, w, 6 * u), Text.PlayersInRoom(players.Count, LobbyHost.MaxGuests + 1), Ui.Small);
 
         // Settings: the host changes them, guests see them.
-        float y = 67 * u, bw = w * 0.2f;
+        float y = 67 * u, bw = w * 0.17f;
         GUI.enabled = isHost;
         if (GUI.Button(new Rect(w * 0.08f, y, bw, 8 * u), Text.ArenaSize(settings.Width, settings.Height), Ui.SmallButton) && isHost)
             _host.ChangeSettings(NextSize(settings));
@@ -252,6 +255,12 @@ public sealed class BattleScreens
             _host.ChangeSettings(NextTime(settings));
         if (GUI.Button(new Rect(w * 0.08f + 2 * (bw + u), y, bw * 0.7f, 8 * u), Text.EntryFee(settings.EntryFee), Ui.SmallButton) && isHost)
             _host.ChangeSettings(NextFee(settings));
+        if (GUI.Button(new Rect(w * 0.08f + 2.7f * bw + 3 * u, y, bw * 0.75f, 8 * u), Text.Enemies(settings.EnemiesOn), Ui.SmallButton) && isHost)
+        {
+            var n = settings.Clone();
+            n.EnemiesOn = !n.EnemiesOn;
+            _host.ChangeSettings(n);
+        }
         GUI.enabled = true;
 
         if (isHost)
