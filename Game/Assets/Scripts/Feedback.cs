@@ -14,7 +14,7 @@ public sealed class Feedback : MonoBehaviour
 
     private bool _musicOn = true;
     private AudioSource _sfx, _music;
-    private AudioClip _place, _boom, _death, _pickup, _clear, _tune;
+    private AudioClip _place, _boom, _death, _pickup, _clear, _tune, _click;
 
     public static Feedback Create(bool music, bool sound, bool vibration)
     {
@@ -37,6 +37,7 @@ public sealed class Feedback : MonoBehaviour
         _pickup = Tone("pickup", 0.25f, t => Square(t, t < 0.08f ? 523f : t < 0.16f ? 659f : 784f) * 0.7f);
         _clear = Tone("clear", 0.8f, t => Square(t, new[] { 523f, 659f, 784f, 1047f }[Mathf.Min(3, (int)(t / 0.2f))]) * 0.6f);
         _tune = Tone("tune", 6.4f, Tune);
+        _click = Tone("click", 0.03f, t => Square(t, 1400f) * Fade(t, 0.03f));
         _music.clip = _tune;
         _music.loop = true;
         _music.volume = 0.18f;
@@ -49,6 +50,8 @@ public sealed class Feedback : MonoBehaviour
     public void Died() { Play(_death, 0.8f); Vibrate(300, 255); }
     public void PowerUp() => Play(_pickup, 0.7f);
     public void StageClear() => Play(_clear, 0.7f);
+    /// <summary>A menu control was pressed: a soft click and a very light tap.</summary>
+    public void Click() { Play(_click, 0.35f); Vibrate(8, 40); }
 
     private void Play(AudioClip clip, float volume)
     {

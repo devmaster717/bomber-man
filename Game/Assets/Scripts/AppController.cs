@@ -41,6 +41,9 @@ public sealed class AppController : MonoBehaviour
     private string _notice;
     private string _nicknameDraft = "";
     private int _setupAvatar;
+    private bool _confirmQuit;
+    private Page _shownPage;
+    private float _pageShownAt;
 
     private void Awake()
     {
@@ -71,14 +74,37 @@ public sealed class AppController : MonoBehaviour
     private void Update()
     {
         if (_page == Page.Bluetooth) _battle.Update();
-        if (_page == Page.Playing && (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P)))
-            Pause();
+        if (Input.GetKeyDown(KeyCode.Escape)) Back(); // Android's Back button
+        else if (_page == Page.Playing && Input.GetKeyDown(KeyCode.P)) Pause();
     }
 
-    // Leaving the app (a call, the home button) pauses the attempt.
+    /// <summary>The Android Back button: what the screen's own Back would do; in play it pauses.</summary>
+    private void Back()
+    {
+        switch (_page)
+        {
+            case Page.Playing: Pause(); break;
+            case Page.Paused: Resume(); break;
+            case Page.Settings: LeaveSettings(); break;
+            case Page.StageSelect:
+            case Page.Shop: _page = Page.Home; break;
+            case Page.JewelPacks: _page = Page.Shop; break;
+            case Page.Results:
+                CloseView();
+                _page = Page.StageSelect;
+                SetHomeCamera();
+                break;
+            case Page.Home: _confirmQuit = !_confirmQuit; break;
+            case Page.Bluetooth: _battle.Back(); break;
+        }
+    }
+
+    // Leaving the app (a call, the home button) pauses the attempt and saves everything.
     private void OnApplicationPause(bool paused)
     {
-        if (paused && _page == Page.Playing) Pause();
+        if (!paused) return;
+        if (_page == Page.Playing) Pause();
+        Save();
     }
 
     private void OnApplicationFocus(bool focused)
@@ -169,6 +195,8 @@ public sealed class AppController : MonoBehaviour
     private void OnGUI()
     {
         Ui.Begin();
+        var e = Event.current;
+        bool pressed = e.type == EventType.MouseDown;
         // Menus sit on the palace backdrop; in play (and its pause, results and settings) the arena shows instead.
         bool arenaShowing = _page is Page.Playing or Page.Paused or Page.Results
             || (_page == Page.Settings && _settingsReturn == Page.Paused)
@@ -187,6 +215,28 @@ public sealed class AppController : MonoBehaviour
             case Page.JewelPacks: DrawJewelPacks(); break;
             case Page.Bluetooth: _battle.OnGUI(); break;
         }
+        if (_page == Page.Home && _confirmQuit) DrawQuitConfirm();
+        else _confirmQuit = false;
+
+        // Any control that took the press (button, slider, text field) clicks, with a light tap.
+        if (pressed && e.type == EventType.Used) _feedback.Click();
+
+        // Each new screen fades in from navy.
+        if (_page != _shownPage)
+        {
+            _shownPage = _page;
+            _pageShownAt = Time.unscaledTime;
+        }
+        float fade = 1f - (Time.unscaledTime - _pageShownAt) / 0.25f;
+        if (fade > 0f) Ui.Fade(fade);
+    }
+
+    private void DrawQuitConfirm()
+    {
+        var col = new Ui.Column(Ui.Panel(0.45f, 0.45f));
+        GUI.Label(col.Next(12), Text.QuitGame, Ui.Label);
+        if (GUI.Button(col.Next(10), Text.Stay, Ui.Button)) _confirmQuit = false;
+        if (GUI.Button(col.Next(10), Text.Leave, Ui.Button)) Application.Quit();
     }
 
     private void DrawWalletBar()
@@ -194,13 +244,13 @@ public sealed class AppController : MonoBehaviour
         _wallet.Refresh();
         string lives = Text.Lives(_wallet.Lives);
         if (_wallet.SecondsToNextLife is long s) lives += "  " + Text.NextLifeIn(Ui.Clock(s));
-        GUI.Label(new Rect(0, Ui.U, Screen.width, 7 * Ui.U), Text.Jewels(_wallet.Jewels) + "      " + lives, Ui.Label);
+        GUI.Label(new Rect(0, Ui.U, Ui.W, 7 * Ui.U), Text.Jewels(_wallet.Jewels) + "      " + lives, Ui.Label);
     }
 
     /// <summary>First launch: choose a nickname and a free starting avatar.</summary>
     private void DrawSetup()
     {
-        float w = Screen.width, u = Ui.U;
+        float w = Ui.W, u = Ui.U;
         GUI.Label(new Rect(0, 4 * u, w, 12 * u), Text.Welcome, Ui.Title);
         GUI.Label(new Rect(0, 17 * u, w, 7 * u), Text.ChooseNickname(PlayerProfile.MaxNicknameLength), Ui.Label);
         _nicknameDraft = GUI.TextField(new Rect(w * 0.3f, 25 * u, w * 0.4f, 10 * u), _nicknameDraft, PlayerProfile.MaxNicknameLength, Ui.Field);
@@ -223,7 +273,7 @@ public sealed class AppController : MonoBehaviour
     {
         float u = Ui.U, size = 14 * u, gap = 2 * u;
         float total = PlayerProfile.AvatarCount * size + (PlayerProfile.AvatarCount - 1) * gap;
-        float x = (Screen.width - total) / 2;
+        float x = (Ui.W - total) / 2;
         for (int i = 0; i < PlayerProfile.AvatarCount; i++)
         {
             var r = new Rect(x + i * (size + gap), y, size, size);
@@ -245,7 +295,7 @@ public sealed class AppController : MonoBehaviour
         GUI.DrawTexture(new Rect(3 * u, 2 * u, 10 * u, 10 * u), PlaceholderSprites.Avatar(_profile.Avatar).texture, ScaleMode.ScaleToFit);
         GUI.DrawTexture(new Rect(2.4f * u, 1.4f * u, 11.2f * u, 11.2f * u), Ui.AvatarRing, ScaleMode.ScaleToFit);
         GUI.Label(new Rect(14 * u, 2 * u, 40 * u, 10 * u), _profile.Nickname, Ui.Small);
-        var col = new Ui.Column(new Rect(Screen.width * 0.3f, Screen.height * 0.12f, Screen.width * 0.4f, Screen.height * 0.88f), 0f);
+        var col = new Ui.Column(new Rect(Ui.W * 0.3f, Ui.H * 0.12f, Ui.W * 0.4f, Ui.H * 0.88f), 0f);
         GUI.Label(col.Next(14), Text.GameTitle, Ui.Title);
         if (GUI.Button(col.Next(11), Text.StageMode, Ui.Button))
         {
@@ -269,7 +319,7 @@ public sealed class AppController : MonoBehaviour
     private void DrawStageSelect()
     {
         DrawWalletBar();
-        float w = Screen.width, u = Ui.U;
+        float w = Ui.W, u = Ui.U;
         GUI.Label(new Rect(0, 8 * u, w, 9 * u), Text.ChooseStage, Ui.Label);
 
         const int cols = 5, rows = 4;
@@ -302,7 +352,7 @@ public sealed class AppController : MonoBehaviour
     private void DrawPauseButton()
     {
         float s = 10 * Ui.U;
-        if (GUI.Button(new Rect(Screen.width - s - 2 * Ui.U, 2 * Ui.U, s, s), Text.PauseButton, Ui.Button)) Pause();
+        if (GUI.Button(new Rect(Ui.W - s - 2 * Ui.U, 2 * Ui.U, s, s), Text.PauseButton, Ui.Button)) Pause();
     }
 
     private void DrawPauseMenu()
@@ -364,7 +414,7 @@ public sealed class AppController : MonoBehaviour
     private void DrawSettings()
     {
         if (_settingsReturn == Page.Paused) Ui.Panel(0.95f, 0.95f);
-        float w = Screen.width, u = Ui.U;
+        float w = Ui.W, u = Ui.U;
         GUI.Label(new Rect(0, 3 * u, w, 10 * u), Text.Settings, Ui.Title);
 
         // Left column: sound, vibration and controls (rows of 8, 1 apart).
@@ -403,18 +453,20 @@ public sealed class AppController : MonoBehaviour
         _feedback.SoundOn = _profile.SoundOn;
         _feedback.VibrationOn = _profile.VibrationOn;
 
-        if (GUI.Button(new Rect(w * 0.4f, 89 * u, w * 0.2f, 9 * u), Text.Back, Ui.Button))
-        {
-            Save();
-            if (_view != null) _view.ApplySettings(_profile);
-            _page = _settingsReturn;
-        }
+        if (GUI.Button(new Rect(w * 0.4f, 89 * u, w * 0.2f, 9 * u), Text.Back, Ui.Button)) LeaveSettings();
+    }
+
+    private void LeaveSettings()
+    {
+        Save();
+        if (_view != null) _view.ApplySettings(_profile);
+        _page = _settingsReturn;
     }
 
     private void DrawShop()
     {
         DrawWalletBar();
-        float w = Screen.width, u = Ui.U;
+        float w = Ui.W, u = Ui.U;
         GUI.Label(new Rect(0, 7 * u, w, 9 * u), Text.Shop, Ui.Title);
         float x = w * 0.08f, cw = w * 0.84f;
 
@@ -477,7 +529,7 @@ public sealed class AppController : MonoBehaviour
     private void DrawJewelPacks()
     {
         DrawWalletBar();
-        float w = Screen.width, u = Ui.U;
+        float w = Ui.W, u = Ui.U;
         GUI.Label(new Rect(0, 7 * u, w, 9 * u), Text.QrTitle, Ui.Title);
         _qr ??= PlaceholderQr();
         float size = 46 * u;

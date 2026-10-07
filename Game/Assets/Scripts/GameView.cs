@@ -134,7 +134,7 @@ public sealed class GameView : MonoBehaviour
                       (b.HasRemoteControl ? "  " + Text.HeldRemote : "") +
                       (b.SpeedUpTicksLeft > 0 ? "  " + Text.HeldSpeed(Mathf.CeilToInt(b.SpeedUpTicksLeft / (float)Units.TicksPerSecond)) : "");
         if (held.Length > 0) hud += Environment.NewLine + held.Trim();
-        GUI.Label(new Rect(Screen.width * 0.03f, Screen.height * 0.015f, Screen.width * 0.85f, Screen.height * 0.12f), hud, Ui.Hud);
+        GUI.Label(new Rect(Ui.W * 0.03f, Ui.H * 0.015f, Ui.W * 0.85f, Ui.H * 0.12f), hud, Ui.Hud);
     }
 
     private int StageNumber => int.TryParse(name.Replace("Stage ", ""), out int n) ? n : 0;
