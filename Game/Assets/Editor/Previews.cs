@@ -133,43 +133,48 @@ public static class Previews
     }
 
     /// <summary>
-    /// A blast frame by frame in the 2D view, as Builds/preview-fire-N.png: the ticks after it goes off, with the
+    /// A blast frame by frame in both views, as Builds/preview-fire-2d-N.png and -3d-N.png: the ticks after it goes off, with the
     /// particles run for the same time, to check the flames show exactly while the fire burns.
     /// </summary>
     public static void FireBatch()
     {
         PalaceSetup.Run();
-        EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
-        // The bomber bombs (1,1) and steps down out of range.
-        var g = new Game(Arena.FromRows(
-            "#########",
-            "#.......#",
-            "#.#.#.#.#",
-            "#.......#",
-            "#########"), new TilePos(1, 1));
-        g.Step(Direction.None, placeBomb: true);
-        var view = ArenaView.Create(g, false, ArenaTheme.Palace);
-        var camera = Camera.main;
-        camera.aspect = (float)Width / Height;
-        for (int i = 0; i < 10; i++) { g.Step(Direction.Down); view.OnTick(); }
-        while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing) { g.Step(Direction.None); view.OnTick(); }
-        int[] after = { 1, 3, 6, Game.FireTicks - 1, Game.FireTicks + 1, Game.FireTicks + 3 };
-        int at = 1;
-        for (int k = 0; k < after.Length; k++)
+        foreach (bool threeD in new[] { false, true })
         {
-            for (; at <= after[k]; at++)
+            EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+            // The bomber bombs (1,1) and steps down out of range.
+            var g = new Game(Arena.FromRows(
+                "#########",
+                "#.......#",
+                "#.#.#.#.#",
+                "#.......#",
+                "#########"), new TilePos(1, 1));
+            g.Step(Direction.None, placeBomb: true);
+            var view = ArenaView.Create(g, threeD, ArenaTheme.Palace);
+            var camera = Camera.main;
+            camera.aspect = (float)Width / Height;
+            for (int i = 0; i < 10; i++) { g.Step(Direction.Down); view.OnTick(); }
+            while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing) { g.Step(Direction.None); view.OnTick(); }
+            int[] after = { 1, 3, 6, Game.FireTicks - 1, Game.FireTicks + 1, Game.FireTicks + 3 };
+            int at = 1;
+            for (int k = 0; k < after.Length; k++)
             {
-                if (at > 1) g.Step(Direction.None);
-                view.OnTick();
-                view.Draw(1f);
-                foreach (var ps in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
-                    ps.Simulate(1f / Units.TicksPerSecond, true, false, true);
+                for (; at <= after[k]; at++)
+                {
+                    if (at > 1) g.Step(Direction.None);
+                    view.OnTick();
+                    view.Draw(1f);
+                    // Particles don't run on their own in the editor: advance each one tick.
+                    foreach (var ps in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+                        ps.Simulate(1f / Units.TicksPerSecond, false, false, true);
+                }
+                view.Follow(0);
+                Debug.Log($"FIRE {(threeD ? "3d" : "2d")} +{after[k]} ticks: burning={g.IsBurning(new TilePos(1, 1))} bomber alive={g.Bomber.Alive}");
+                var shot = Shoot(camera);
+                File.WriteAllBytes($"Builds/preview-fire-{(threeD ? "3d" : "2d")}-{k}.png", shot.EncodeToPNG());
+                Object.DestroyImmediate(shot);
             }
-            view.Follow(0);
-            Debug.Log($"FIRE +{after[k]} ticks: burning={g.IsBurning(new TilePos(1, 1))} bomber alive={g.Bomber.Alive}");
-            var shot = Shoot(camera);
-            File.WriteAllBytes($"Builds/preview-fire-{k}.png", shot.EncodeToPNG());
-            Object.DestroyImmediate(shot);
+            view.Destroy();
         }
         EditorApplication.Exit(0);
     }
