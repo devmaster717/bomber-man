@@ -31,6 +31,9 @@ public static class Builds
 
         // Android 8.0+, IL2CPP for ARM64 phones and x86_64 emulators (LDPlayer).
         PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
+        // Pinned rather than "highest installed": finding the highest makes Unity query sdkmanager online before every
+        // build (which hangs when the network does). 36 is installed with Unity and meets Google Play's requirement.
+        PlayerSettings.Android.targetSdkVersion = (AndroidSdkVersions)36;
         PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
         PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64 | AndroidArchitecture.X86_64;
 
