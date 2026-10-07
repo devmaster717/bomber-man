@@ -1,7 +1,7 @@
 using BombArena.Core;
 using UnityEngine;
 
-/// <summary>The follow camera shared by stage mode and rounds: it never shows space outside the walls.</summary>
+/// <summary>The 2D view's overhead camera, shared by stage mode and rounds: it never shows space outside the walls.</summary>
 public static class ArenaCamera
 {
     /// <summary>Most tiles shown vertically; larger arenas scroll.</summary>
@@ -16,6 +16,7 @@ public static class ArenaCamera
             camera.tag = "MainCamera";
         }
         camera.orthographic = true;
+        camera.transform.rotation = Quaternion.identity;
         camera.clearFlags = CameraClearFlags.SolidColor;
         camera.backgroundColor = Color.black;
         float tilesHigh = Mathf.Min(MaxVisibleTilesHigh, arena.Height, arena.Width / camera.aspect);

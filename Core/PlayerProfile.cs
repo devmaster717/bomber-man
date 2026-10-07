@@ -79,6 +79,8 @@ namespace BombArena.Core
         public bool UseJoystick { get; set; }
         public int ButtonScalePercent { get; set; } = 100;
         public bool LeftHanded { get; set; }
+        /// <summary>Draw the arena in 3D (default) or in the original flat 2D.</summary>
+        public bool View3D { get; set; } = true;
 
         /// <summary>Saves as "key = value" lines, like the stage files.</summary>
         public string Serialize()
@@ -102,6 +104,7 @@ namespace BombArena.Core
             Put("joystick", UseJoystick);
             Put("buttonScale", ButtonScalePercent);
             Put("leftHanded", LeftHanded);
+            Put("view3d", View3D);
             return sb.ToString();
         }
 
@@ -150,6 +153,7 @@ namespace BombArena.Core
                     case "joystick": p.UseJoystick = b; break;
                     case "buttonScale": p.ButtonScalePercent = (int)n; break;
                     case "leftHanded": p.LeftHanded = b; break;
+                    case "view3d": p.View3D = b; break;
                     default:
                         if (key.StartsWith("stars.") && int.TryParse(key.Substring(6), out int stage))
                             p.BestStars[stage] = (int)n;

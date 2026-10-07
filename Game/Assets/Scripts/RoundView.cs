@@ -15,9 +15,9 @@ public sealed class RoundView : MonoBehaviour
 
     private RoundHost _host;
     private RoundGuest _guest;
-    private ArenaRenderer _renderer;
+    private IArenaView _renderer;
+    private bool _threeD;
     private TouchControls _controls;
-    private Camera _camera;
     private float _accumulator, _sinceUpdate;
     private bool _bombQueued, _detonateQueued;
 
@@ -66,14 +66,14 @@ public sealed class RoundView : MonoBehaviour
         v._controls.UseJoystick = settings.UseJoystick;
         v._controls.LeftHanded = settings.LeftHanded;
         v._controls.Scale = settings.ButtonScalePercent / 100f;
+        v._threeD = settings.View3D;
         return v;
     }
 
     private void Build()
     {
-        _renderer = new ArenaRenderer(Game);
-        _camera = ArenaCamera.SetUp(Game.Arena);
-        ArenaCamera.Follow(_camera, Game.Arena, _renderer.BomberDrawPosition(YourIndex));
+        _renderer = ArenaView.Create(Game, _threeD);
+        _renderer.Follow(YourIndex);
     }
 
     private void OnDestroy()
@@ -120,7 +120,7 @@ public sealed class RoundView : MonoBehaviour
             _renderer.Draw(Mathf.Clamp01(_sinceUpdate / TickSeconds));
         }
 
-        ArenaCamera.Follow(_camera, Game.Arena, _renderer.BomberDrawPosition(YourIndex));
+        _renderer.Follow(YourIndex);
 
         if (Over && !_endedRaised)
         {

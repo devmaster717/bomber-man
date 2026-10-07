@@ -1,6 +1,6 @@
 # Bomb Arena
 
-A 2D top-down, grid-based bomb game for Android: a 100-stage single-player mode and a 2–3 player Bluetooth battle mode, tied together by a jewel currency.
+A grid-based bomb game for Android, drawn in 3D or flat 2D: a 100-stage single-player mode and a 2–3 player Bluetooth battle mode, tied together by a jewel currency.
 
 ## People and play
 
@@ -44,6 +44,10 @@ The player whose device creates a round and runs it; the other players in the ro
 **Arena**:
 The tile grid a stage or round is played on, enclosed by an outer wall.
 _Avoid_: Board, map, field
+
+**View**:
+How the arena is drawn: 3D (the default, a tilted camera following the bomber) or the original flat 2D from above. Chosen in Settings; it never changes play.
+_Avoid_: Mode (that word is for stage mode and Bluetooth battles)
 
 **Hard block**:
 An indestructible tile: the outer wall, and the pillars on every tile whose coordinates are both even.

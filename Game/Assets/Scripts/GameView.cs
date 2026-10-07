@@ -18,9 +18,9 @@ public sealed class GameView : MonoBehaviour
     /// <summary>Raised once when the attempt is cleared or failed.</summary>
     public event Action<Game> Finished;
 
-    private ArenaRenderer _renderer;
+    private IArenaView _renderer;
+    private bool _threeD;
     private TouchControls _controls;
-    private Camera _camera;
     private float _accumulator;
     private bool _bombQueued, _detonateQueued, _finishedRaised;
 
@@ -32,20 +32,27 @@ public sealed class GameView : MonoBehaviour
         view._controls = view.gameObject.AddComponent<TouchControls>();
         view.ApplySettings(settings);
         view.HookFeedback();
-        view._renderer = new ArenaRenderer(view.Game);
-        view._camera = ArenaCamera.SetUp(view.Game.Arena);
-        ArenaCamera.Follow(view._camera, view.Game.Arena, view._renderer.BomberDrawPosition(0));
         return view;
     }
 
     private void OnDestroy() => _renderer?.Destroy();
 
-    /// <summary>Control layout from Settings: joystick or D-pad, button size and left-handed mirror.</summary>
+    /// <summary>
+    /// Settings that matter in play: the control layout (joystick or D-pad, button size, left-handed mirror) and the
+    /// 2D or 3D view, which can be switched mid-attempt from the pause menu.
+    /// </summary>
     public void ApplySettings(PlayerProfile settings)
     {
         _controls.UseJoystick = settings.UseJoystick;
         _controls.LeftHanded = settings.LeftHanded;
         _controls.Scale = settings.ButtonScalePercent / 100f;
+        if (_renderer == null || _threeD != settings.View3D)
+        {
+            _renderer?.Destroy();
+            _threeD = settings.View3D;
+            _renderer = ArenaView.Create(Game, _threeD);
+            _renderer.Follow(0);
+        }
     }
 
     // Sounds and vibration follow what happens in the core; the core knows nothing about them.
@@ -89,7 +96,7 @@ public sealed class GameView : MonoBehaviour
         }
 
         _renderer.Draw(_accumulator / TickSeconds);
-        ArenaCamera.Follow(_camera, Game.Arena, _renderer.BomberDrawPosition(0));
+        _renderer.Follow(0);
 
         if (Game.Outcome != Outcome.Playing && !_finishedRaised)
         {

@@ -153,7 +153,8 @@ public sealed class AppController : MonoBehaviour
         if (cam == null) return;
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.12f, 0.16f, 0.22f);
-        cam.transform.position = new Vector3(0, 0, -10f);
+        cam.orthographic = true;
+        cam.transform.SetPositionAndRotation(new Vector3(0, 0, -10f), Quaternion.identity);
     }
 
     // ---- screens ----
@@ -376,6 +377,16 @@ public sealed class AppController : MonoBehaviour
         GUI.Label(new Rect(rx, 13 * u, rw, 7 * u), Text.Nickname, Ui.Label);
         _nicknameDraft = GUI.TextField(new Rect(rx, 22 * u, rw, 10 * u), _nicknameDraft, PlayerProfile.MaxNicknameLength, Ui.Button);
         if (PlayerProfile.IsValidNickname(_nicknameDraft)) _profile.Nickname = PlayerProfile.CleanNickname(_nicknameDraft);
+
+        // The arena view: the new 3D one or the original flat 2D one.
+        var view = new Rect(rx, 40 * u, rw, 8 * u);
+        GUI.Label(new Rect(view.x, view.y, view.width * 0.4f, view.height), Text.View, Ui.Label);
+        var before = GUI.color;
+        GUI.color = _profile.View3D ? new Color(1f, 1f, 1f, 0.45f) : Color.white;
+        if (GUI.Button(new Rect(view.x + view.width * 0.4f, view.y, view.width * 0.3f, view.height), Text.View2D, Ui.Button)) _profile.View3D = false;
+        GUI.color = _profile.View3D ? Color.white : new Color(1f, 1f, 1f, 0.45f);
+        if (GUI.Button(new Rect(view.x + view.width * 0.7f, view.y, view.width * 0.3f, view.height), Text.View3D, Ui.Button)) _profile.View3D = true;
+        GUI.color = before;
 
         // Bottom: avatars the player owns can be chosen (more come from the shop).
         GUI.Label(new Rect(0, 69 * u, w, 5 * u), Text.Avatar, Ui.Small);

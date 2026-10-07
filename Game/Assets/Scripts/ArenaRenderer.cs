@@ -3,15 +3,17 @@ using BombArena.Core;
 using UnityEngine;
 
 /// <summary>
-/// Draws a game's state with sprites. Holds no rules: every frame it mirrors what the core says.
-/// World space: one unit per tile, tile (x, y) centred at (x, -y) so row 0 is at the top.
+/// The original flat 2D view: draws a game's state with sprites under an overhead camera. Holds no rules: every
+/// frame it mirrors what the core says. World space: one unit per tile, tile (x, y) centred at (x, -y) so row 0 is
+/// at the top.
 /// </summary>
-public sealed class ArenaRenderer
+public sealed class ArenaRenderer : IArenaView
 {
     private const int TileOrder = 0, ExitOrder = 1, PowerUpOrder = 2, FireOrder = 5, BombOrder = 6, EnemyOrder = 9, BomberOrder = 10;
 
     private readonly Game _game;
     private readonly Transform _root;
+    private readonly Camera _camera;
     private readonly SpriteRenderer[] _tiles;
     private readonly Tile[] _drawnTiles;
     private readonly SpriteRenderer[] _fire;
@@ -56,12 +58,14 @@ public sealed class ArenaRenderer
             _previous[i] = _current[i] = WorldPosition(game.Bombers[i]);
         }
         SyncEnemyList();
+        _camera = ArenaCamera.SetUp(arena);
     }
+
+    public void Follow(int bomber) => ArenaCamera.Follow(_camera, _game.Arena, BomberDrawPosition(bomber));
 
     public static Vector2 WorldPosition(Bomber b) => World(b.X, b.Y);
     private static Vector2 World(int x, int y) => new Vector2(x / (float)Units.PerTile, -y / (float)Units.PerTile);
 
-    /// <summary>Call after each core tick, so movement can be interpolated between ticks.</summary>
     public void OnTick()
     {
         for (int i = 0; i < _bombers.Length; i++)
@@ -89,7 +93,6 @@ public sealed class ArenaRenderer
         }
     }
 
-    /// <summary>Redraws the state; <paramref name="t"/> is the fraction of the way to the next tick.</summary>
     public void Draw(float t)
     {
         var arena = _game.Arena;
