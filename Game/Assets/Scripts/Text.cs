@@ -47,9 +47,9 @@ public static class Text
 
     // Results
     public const string StageClear = "Stage clear!";
-    public static string StarsAndTime(int stars, string time) => $"Stars {stars}/3    Time {time}";
-    public static string JewelsEarned(long total, long clear, long bonus, bool first3) =>
-        $"+{total} jewels  ({clear} clear + {bonus} {(first3 ? "first 3 stars" : "stars")})";
+    public static string ClearTime(string time) => $"Time {time}";
+    public static string JewelBreakdown(long clear, long bonus, bool first3) =>
+        $"{clear} for the clear + {bonus} {(first3 ? "for your first 3 stars" : "for the stars")}";
     public const string TimeUp = "Time up!";
     public const string YouDied = "You died";
     public static string LivesLeft(int n) => $"Lives left: {n}";
