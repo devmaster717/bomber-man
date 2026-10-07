@@ -17,8 +17,6 @@ public static class Text
     public const string Shop = "Shop";
     public const string Settings = "Settings";
     public const string ComingSoon = " (coming soon)";
-    public static string Jewels(long n) => $"Jewels {n}";
-    public static string Lives(int n) => $"Lives {n}";
     public static string NextLifeIn(string clock) => $"(next in {clock})";
     public const string AttemptCutShort = "Your last attempt was cut short, so it cost a life.";
     public const string NoLives = "No lives left. Wait for one to regenerate.";

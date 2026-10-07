@@ -259,12 +259,13 @@ public sealed class AppController : MonoBehaviour
         if (GUI.Button(col.Next(10), Text.Leave, Ui.Button)) Application.Quit();
     }
 
+    /// <summary>Jewels (a ruby) and lives (a heart, with the next-life countdown) across the top.</summary>
     private void DrawWalletBar()
     {
         _wallet.Refresh();
-        string lives = Text.Lives(_wallet.Lives);
+        string lives = _wallet.Lives.ToString();
         if (_wallet.SecondsToNextLife is long s) lives += "  " + Text.NextLifeIn(Ui.Clock(s));
-        GUI.Label(new Rect(0, Ui.U, Ui.W, 7 * Ui.U), Text.Jewels(_wallet.Jewels) + "      " + lives, Ui.Label);
+        Ui.IconRow(new Rect(0, Ui.U, Ui.W, 7 * Ui.U), Ui.Label, (Ui.Ruby, _wallet.Jewels.ToString()), (Ui.Heart, lives));
     }
 
     /// <summary>First launch: choose a nickname and a free starting avatar.</summary>
@@ -358,10 +359,12 @@ public sealed class AppController : MonoBehaviour
             if (n > StageLibrary.Count) break;
             var r = new Rect(left + (i % cols) * cellW + u, top + (i / cols) * (cellH + u), cellW - 2 * u, cellH);
             bool open = _progress.IsUnlocked(n);
-            string label = n + System.Environment.NewLine + (open ? StarText(_progress.BestStars(n)) : Text.Locked);
+            // The number above the best result: three stars, gold for each one earned (or "locked").
+            string label = n + System.Environment.NewLine + (open ? " " : Text.Locked);
             GUI.enabled = open;
             if (GUI.Button(r, label, Ui.Button)) StartAttempt(n);
             GUI.enabled = true;
+            if (open) DrawStars(r, _progress.BestStars(n));
         }
 
         float by = top + rows * (cellH + u) + 2 * u, bw = 22 * u;
@@ -374,7 +377,14 @@ public sealed class AppController : MonoBehaviour
         GUI.Label(new Rect(0, by + 10 * u, w, 6 * u), Text.StageRange(first, Mathf.Min(first + StagesPerPage - 1, StageLibrary.Count)), Ui.Small);
     }
 
-    private static string StarText(int stars) => stars == 0 ? "- - -" : new string('*', stars) + new string('-', 3 - stars);
+    // Three stars in the lower half of a stage button.
+    private static void DrawStars(Rect button, int earned)
+    {
+        float size = button.height * 0.36f, gap = size * 0.12f;
+        float x = button.center.x - (3 * size + 2 * gap) / 2f, y = button.y + button.height * 0.52f;
+        for (int i = 0; i < 3; i++)
+            GUI.DrawTexture(new Rect(x + i * (size + gap), y, size, size), Ui.Star(i < earned), ScaleMode.ScaleToFit);
+    }
 
     private void DrawPauseButton()
     {

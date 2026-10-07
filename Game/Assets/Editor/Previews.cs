@@ -106,6 +106,32 @@ public static class Previews
         EditorApplication.Exit(0);
     }
 
+    /// <summary>The interface icons (ruby, heart, stars) as Builds/preview-icons.png, on the menu navy.</summary>
+    public static void IconsBatch()
+    {
+        var icons = new[] { Ui.Ruby, Ui.Heart, Ui.Star(true), Ui.Star(false) };
+        const int s = 96, pad = 16;
+        var sheet = new Texture2D(icons.Length * (s + pad) + pad, s + 2 * pad, TextureFormat.RGBA32, false);
+        var navy = new Color(0.07f, 0.11f, 0.22f);
+        var bg = new Color[sheet.width * sheet.height];
+        for (int i = 0; i < bg.Length; i++) bg[i] = navy;
+        sheet.SetPixels(bg);
+        for (int k = 0; k < icons.Length; k++)
+        {
+            var px = icons[k].GetPixels();
+            for (int y = 0; y < s; y++)
+            for (int x = 0; x < s; x++)
+            {
+                var c = px[y * s + x];
+                int sx = pad + k * (s + pad) + x, sy = pad + y;
+                sheet.SetPixel(sx, sy, Color.Lerp(sheet.GetPixel(sx, sy), new Color(c.r, c.g, c.b, 1f), c.a));
+            }
+        }
+        sheet.Apply();
+        File.WriteAllBytes("Builds/preview-icons.png", sheet.EncodeToPNG());
+        EditorApplication.Exit(0);
+    }
+
     public static void RenderBatch()
     {
         Render();
