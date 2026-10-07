@@ -54,13 +54,21 @@ if ($Release) {
     $env:BOMBARENA_RELEASE = ""
 }
 
+# A previous run's log must never be read as this run's result.
+if (Test-Path $Log) { Remove-Item -Force $Log }
+$started = Get-Date
 $p = Start-Process -FilePath $Unity -PassThru -NoNewWindow -ArgumentList @(
     "-batchmode", "-projectPath", "`"$project`"", "-buildTarget", "Android",
     "-executeMethod", "Builds.AndroidBatch", "-logFile", "`"$Log`"")
 # Not Start-Process -Wait: it would also wait for the Gradle daemon, which never exits.
 $p.WaitForExit()
+if (-not (Test-Path $Log)) { Write-Error "Unity wrote no log (exit code $($p.ExitCode)): it did not run the build."; exit 1 }
 $lines = Get-Content $Log
 $lines | Select-String -Pattern "BUILD RESULT|error CS\d+|ninja: error|What went wrong|offline mode" | Select-Object -First 15 | ForEach-Object { $_.Line }
 # A release builds twice (.aab, then .apk): both must succeed.
 $results = @($lines | Select-String -Pattern "BUILD RESULT: ")
-if ($results.Count -gt 0 -and -not ($results | Where-Object { $_.Line -notmatch "BUILD RESULT: Succeeded" })) { exit 0 } else { exit 1 }
+if ($results.Count -eq 0 -or ($results | Where-Object { $_.Line -notmatch "BUILD RESULT: Succeeded" })) { exit 1 }
+# And the app must really be new, not one left from an earlier build.
+$output = Join-Path $project $(if ($Release) { "Builds\BombArena.aab" } else { "Builds\BombArena.apk" })
+if (-not (Test-Path $output) -or (Get-Item $output).LastWriteTime -lt $started) { Write-Error "$output was not rewritten by this build."; exit 1 }
+exit 0

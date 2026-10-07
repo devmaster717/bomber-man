@@ -137,8 +137,9 @@ public sealed class GameView : MonoBehaviour
         DrawStarMeter();
     }
 
-    // The stars still within reach: a meter draining over the stage's whole time (3T), notched where 3 stars drop to
-    // 2 (at T) and 2 to 1 (at 1.5T), beside three stars that empty as they're lost, and the time left at this rating.
+    // The stars still within reach: a meter draining over the stage's whole time (3T), blue when full and turning
+    // through green and yellow to red as it runs out, beside three stars that empty as they're lost (3 stars until
+    // T, 2 until 1.5T), and the time left at this rating.
     private int _starsSeen = 3, _lostStar = -1;
     private float _starLostAt = -10f;
     private GUIStyle _meterClock;
@@ -181,8 +182,8 @@ public sealed class GameView : MonoBehaviour
             }
         }
 
-        var tint = stars == 3 ? new Color(1f, 0.83f, 0.36f) : stars == 2 ? new Color(1f, 0.6f, 0.22f) : new Color(0.93f, 0.27f, 0.2f);
-        Ui.Meter(bar, 1f - t / (float)end, tint, 2f / 3f, 0.5f);
+        float remaining = 1f - t / (float)end;
+        Ui.Meter(bar, remaining, Color.HSVToRGB(0.6f * Mathf.Clamp01(remaining), 0.75f, 1f));
         long left = Math.Max(0, (nextDrop - t + Units.TicksPerSecond - 1) / Units.TicksPerSecond);
         GUI.Label(new Rect(bar.xMax + u, bar.y - u, clockW * u, bar.height + 2 * u), Ui.Clock(left), _meterClock);
     }
