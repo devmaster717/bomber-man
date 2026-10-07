@@ -196,7 +196,7 @@ public sealed class ArenaRenderer3D : IArenaView
             }
             else if (_flames[i] != null)
             {
-                _flames[i].Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                PalaceArt.Extinguish(_flames[i]);
             }
         }
 

@@ -70,7 +70,7 @@ A solid object a bomber places on its tile; it explodes when its fuse runs out o
 A bomb with no fuse, placed while the bomber holds Remote Control, that explodes when its owner presses Detonate (or when fire reaches it).
 
 **Fire**:
-The plus-shaped area set burning by an exploding bomb; deadly for a short time to anything in it.
+The plus-shaped area set burning by an exploding bomb; deadly for half a second to any bomber or enemy whose middle is on a burning tile, including one that walks in after the blast (enemies don't avoid it).
 _Avoid_: Flame, explosion (when meaning the burning tiles)
 
 **Chain reaction**:

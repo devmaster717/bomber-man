@@ -198,14 +198,15 @@ namespace BombArena.Core
             }
             Explode(exploding);
 
-            // Deaths: fire kills bombers and enemies; touching an enemy kills a bomber.
+            // Deaths: fire kills bombers and enemies whose middle is on a burning tile (the tile they're mostly in), so
+            // nothing dies outside the flames; touching an enemy kills a bomber.
             foreach (var enemy in _enemies)
                 if (enemy.Alive && enemy.Present && FireTouchesEnemy(enemy))
                     enemy.Alive = false;
             foreach (var bomber in _bombers)
             {
                 if (!bomber.Alive) continue;
-                if (TouchesFire(bomber.Tile, bomber.HitboxOverlaps)) { Kill(bomber); continue; }
+                if (IsBurning(bomber.Tile)) { Kill(bomber); continue; }
                 foreach (var enemy in _enemies)
                     if (enemy.Alive && enemy.Present && enemy.Touches(bomber)) { Kill(bomber); break; }
             }
@@ -328,15 +329,6 @@ namespace BombArena.Core
                 _runnersTriggered = true;
                 _runnersWaiting = RunnersFromExit;
             }
-        }
-
-        private bool TouchesFire(TilePos centre, Func<TilePos, bool> hitboxOverlaps)
-        {
-            for (int y = centre.Y - 1; y <= centre.Y + 1; y++)
-            for (int x = centre.X - 1; x <= centre.X + 1; x++)
-                if (Arena.InBounds(x, y) && IsBurning(x, y) && hitboxOverlaps(new TilePos(x, y)))
-                    return true;
-            return false;
         }
 
         private void Kill(Bomber bomber)

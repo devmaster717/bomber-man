@@ -17,15 +17,15 @@ namespace BombArena.Core
         private int NextFadeLength() => Units.TicksPerSecond / 2 + _rng.Next(Units.TicksPerSecond / 2 + 1);
 
         /// <summary>
-        /// Whether an enemy may enter the tile: open floor (Wall-passers also soft blocks) with no bomb and no fire.
-        /// Enemies never walk into fire, so a blast only kills the enemies inside its range when it goes off.
+        /// Whether an enemy may enter the tile: open floor (Wall-passers also soft blocks) with no bomb. Enemies don't
+        /// avoid fire: like the bomber, one that walks into flames still burning after a blast dies.
         /// </summary>
         public bool IsOpenForEnemy(Enemy enemy, int x, int y)
         {
             if (!Arena.InBounds(x, y)) return false;
             var tile = Arena[x, y];
             bool passable = tile == Tile.Floor || (tile == Tile.SoftBlock && enemy.Kind == EnemyKind.WallPasser);
-            return passable && BombAt(new TilePos(x, y)) == null && !IsBurning(x, y);
+            return passable && BombAt(new TilePos(x, y)) == null;
         }
 
         /// <summary>
@@ -104,23 +104,15 @@ namespace BombArena.Core
         }
 
         /// <summary>
-        /// Whether fire touches an enemy. A Wall-passer inside a soft block is immune to the blast that hits that
-        /// block, so fire that came from a destroyed soft block does not count for it.
+        /// Whether fire hits an enemy: its middle is on a burning tile. A Wall-passer inside a soft block is immune,
+        /// and so is one on the tile of a soft block the same blast has just destroyed (it was inside that block).
         /// </summary>
         private bool FireTouchesEnemy(Enemy e)
         {
-            if (e.Kind != EnemyKind.WallPasser) return TouchesFire(e.Tile, e.HitboxOverlaps);
             var c = e.Tile;
-            if (Arena[c] == Tile.SoftBlock) return false;
-            for (int y = c.Y - 1; y <= c.Y + 1; y++)
-            for (int x = c.X - 1; x <= c.X + 1; x++)
-            {
-                if (!Arena.InBounds(x, y) || !IsBurning(x, y)) continue;
-                var t = new TilePos(x, y);
-                if (_fireFromSoftBlock[y * Arena.Width + x] && t == c) continue;
-                if (e.HitboxOverlaps(t)) return true;
-            }
-            return false;
+            if (!IsBurning(c)) return false;
+            if (e.Kind != EnemyKind.WallPasser) return true;
+            return Arena[c] != Tile.SoftBlock && !_fireFromSoftBlock[c.Y * Arena.Width + c.X];
         }
     }
 }

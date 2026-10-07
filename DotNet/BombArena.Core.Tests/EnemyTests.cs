@@ -125,26 +125,42 @@ public class EnemyTests
         Assert.That(g.EnemiesRemaining, Is.Zero);
     }
 
-    [Test]
-    public void Enemies_out_of_range_survive_and_do_not_walk_into_the_fire()
+    // Places a range-1 bomb at (1,1), takes the bomber to safety at (1,3) and holds the walker at (3,1), heading for
+    // the bomb, until it goes off: the fire then covers (1,1) and (2,1), one tile short of the walker.
+    private static (Game g, Enemy walker) WalkerJustOutsideABlast()
     {
         var g = new Game(Arena.FromRows(Grid), new TilePos(1, 1));
         var walker = g.AddEnemy(EnemyKind.Walker, new TilePos(3, 1));
         g.Step(Direction.None, placeBomb: true);
-        for (int i = 0; i < 10; i++) g.Step(Direction.Down); // bomber escapes to (1,3)
-        // The range-1 fire reaches (2,1); keep the walker two tiles away, heading for the bomb, until it explodes.
+        for (int i = 0; i < 10; i++) g.Step(Direction.Down);
         while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing)
         {
             walker.X = 3 * T; walker.Y = 1 * T; walker.Heading = Direction.Left;
             g.Step(Direction.None);
         }
         Assert.That(g.IsBurning(new TilePos(2, 1)), Is.True);
-        for (int i = 0; i < Game.FireTicks; i++)
-        {
-            g.Step(Direction.None);
-            Assert.That(walker.Alive, Is.True, $"tick {i} after the blast");
-            Assert.That(g.IsBurning(walker.Tile), Is.False, "never steps onto a burning tile");
-        }
+        Assert.That(walker.Alive, Is.True, "out of range when the bomb went off");
+        return (g, walker);
+    }
+
+    [Test]
+    public void An_enemy_out_of_range_survives_the_blast_but_dies_walking_into_the_flames()
+    {
+        var (g, walker) = WalkerJustOutsideABlast();
+        // Like the bomber, an enemy doesn't avoid fire: it keeps walking into the still-burning tile and dies there.
+        for (int i = 0; i < Game.FireTicks && walker.Alive; i++) g.Step(Direction.None);
+        Assert.That(walker.Alive, Is.False);
+    }
+
+    [Test]
+    public void Only_an_enemy_whose_middle_is_in_the_flames_is_hit()
+    {
+        var (g, walker) = WalkerJustOutsideABlast();
+        // Walking away with its edge over the burning (2,1) but its middle on (3,1): not hit.
+        walker.X = 3 * T - 400; walker.Heading = Direction.Right;
+        g.Step(Direction.None);
+        Assert.That(walker.HitboxOverlaps(new TilePos(2, 1)), Is.True);
+        Assert.That(walker.Alive, Is.True);
     }
 
     [Test]
