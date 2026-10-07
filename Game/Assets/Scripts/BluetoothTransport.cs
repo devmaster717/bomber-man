@@ -132,12 +132,7 @@ public sealed class BluetoothTransport : IHostTransport, IDisposable
     public static void RequestPermissions(Action<bool> done)
     {
 #if UNITY_ANDROID && !UNITY_EDITOR
-        int sdk;
-        using (var version = new AndroidJavaClass("android.os.Build$VERSION")) sdk = version.GetStatic<int>("SDK_INT");
-        var needed = sdk >= 31
-            ? new[] { "android.permission.BLUETOOTH_SCAN", "android.permission.BLUETOOTH_CONNECT", "android.permission.BLUETOOTH_ADVERTISE" }
-            : new[] { Permission.FineLocation };
-        var missing = Array.FindAll(needed, p => !Permission.HasUserAuthorizedPermission(p));
+        var missing = MissingPermissions();
         if (missing.Length == 0) { done(true); return; }
         int answered = 0;
         bool all = true;
@@ -151,6 +146,40 @@ public sealed class BluetoothTransport : IHostTransport, IDisposable
         done(false);
 #endif
     }
+
+    /// <summary>True once every permission Bluetooth needs has been granted.</summary>
+    public static bool HasPermissions()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        return MissingPermissions().Length == 0;
+#else
+        return false;
+#endif
+    }
+
+    /// <summary>Opens this app's page in Android's settings, where a declined permission can be allowed after all.</summary>
+    public static void OpenAppSettings()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        using var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+        using var activity = player.GetStatic<AndroidJavaObject>("currentActivity");
+        using var uri = new AndroidJavaClass("android.net.Uri").CallStatic<AndroidJavaObject>("fromParts", "package", Application.identifier, null);
+        using var intent = new AndroidJavaObject("android.content.Intent", "android.settings.APPLICATION_DETAILS_SETTINGS", uri);
+        activity.Call("startActivity", intent);
+#endif
+    }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+    private static string[] MissingPermissions()
+    {
+        int sdk;
+        using (var version = new AndroidJavaClass("android.os.Build$VERSION")) sdk = version.GetStatic<int>("SDK_INT");
+        var needed = sdk >= 31
+            ? new[] { "android.permission.BLUETOOTH_SCAN", "android.permission.BLUETOOTH_CONNECT", "android.permission.BLUETOOTH_ADVERTISE" }
+            : new[] { Permission.FineLocation };
+        return Array.FindAll(needed, p => !Permission.HasUserAuthorizedPermission(p));
+    }
+#endif
 
     private sealed class Guest : IGuestTransport
     {
