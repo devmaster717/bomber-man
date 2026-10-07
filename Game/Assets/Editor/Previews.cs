@@ -16,6 +16,7 @@ public static class Previews
     [MenuItem("Bomb Arena/Render View Previews")]
     public static void Render()
     {
+        PalaceSetup.Run();
         // One scene for all pictures: opening another would unload the placeholder art cached in code.
         EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
         foreach (bool threeD in new[] { true, false })
@@ -24,6 +25,45 @@ public static class Previews
             Capture(StageScene(), threeD, 0, $"Builds/preview-stage-{suffix}.png");
             Capture(RoundScene(), threeD, 1, $"Builds/preview-round-{suffix}.png");
         }
+    }
+
+    /// <summary>Each palace material on a bevelled box, a cube and a sphere, for checking materials and meshes.</summary>
+    public static void MaterialsBatch()
+    {
+        PalaceSetup.Run();
+        EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+        var root = new GameObject("Test").transform;
+        var names = new[] { "Stone", "Wood", "Gold", "Marble", "Floor" };
+        for (int i = 0; i < names.Length; i++)
+        {
+            var m = PalaceArt.Mat(names[i]);
+            PalaceArt.Part(root, PalaceArt.ChamferBox(Vector3.one * 0.8f, 0.05f), m, new Vector3(i * 1.2f, 0.4f, 0), Vector3.one);
+            PalaceArt.Part(root, PalaceArt.Primitive(PrimitiveType.Cube), m, new Vector3(i * 1.2f, 0.4f, -1.4f), Vector3.one * 0.8f);
+            PalaceArt.Part(root, PalaceArt.Primitive(PrimitiveType.Sphere), m, new Vector3(i * 1.2f, 0.4f, -2.8f), Vector3.one * 0.8f);
+        }
+        PalaceArt.Part(root, PalaceArt.ChamferBox(Vector3.one * 0.8f, 0.05f), PalaceArt.Glossy(new Color(0.8f, 0.2f, 0.2f)), new Vector3(-1.2f, 0.4f, 0), Vector3.one);
+        PalaceArt.Part(root, PalaceArt.ChamferBox(Vector3.one * 0.8f, 0.05f), PalaceArt.Tint("Matte", new Color(0.2f, 0.6f, 0.2f)), new Vector3(-1.2f, 0.4f, -1.4f), Vector3.one);
+        var mesh = PalaceArt.ChamferBox(Vector3.one * 0.8f, 0.05f);
+        var nrm = mesh.normals; var vtx = mesh.vertices; var tri = mesh.triangles;
+        for (int t = 0; t < tri.Length; t += 3)
+        {
+            var a = vtx[tri[t]]; var b = vtx[tri[t + 1]]; var c = vtx[tri[t + 2]];
+            var geo = Vector3.Cross(b - a, c - a).normalized; // Unity front faces wind clockwise: this points inward
+            Debug.Log($"FACET centre={(a + b + c) / 3f:F2} normal={nrm[tri[t]]:F2} windingNormal={-geo:F2}");
+        }
+        PalaceArt.Light();
+        var camera = Camera.main;
+        camera.transform.SetPositionAndRotation(new Vector3(2.4f, 6f, -5.5f), Quaternion.Euler(50f, 0f, 0f));
+        camera.clearFlags = CameraClearFlags.SolidColor;
+        camera.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
+        camera.aspect = (float)Width / Height;
+        var rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
+        UnityEngine.Rendering.RenderPipeline.SubmitRenderRequest(camera, new UnityEngine.Rendering.RenderPipeline.StandardRequest { destination = rt });
+        RenderTexture.active = rt;
+        var image = new Texture2D(Width, Height, TextureFormat.RGB24, false);
+        image.ReadPixels(new Rect(0, 0, Width, Height), 0, 0);
+        File.WriteAllBytes("Builds/preview-materials.png", image.EncodeToPNG());
+        EditorApplication.Exit(0);
     }
 
     public static void RenderBatch()
@@ -64,14 +104,24 @@ public static class Previews
         view.Draw(1f);
         view.Follow(follow);
 
-        var rt = new RenderTexture(Width, Height, 24);
-        camera.targetTexture = rt;
-        camera.Render();
+        // Particles don't run on their own in the editor: move any that were started a little way in.
+        foreach (var ps in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+            if (ps.isPlaying || ps.isEmitting) ps.Simulate(0.4f, true, true);
+
+        var rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
+        var request = new UnityEngine.Rendering.RenderPipeline.StandardRequest { destination = rt };
+        if (UnityEngine.Rendering.RenderPipeline.SupportsRenderRequest(camera, request))
+            UnityEngine.Rendering.RenderPipeline.SubmitRenderRequest(camera, request);
+        else
+        {
+            camera.targetTexture = rt;
+            camera.Render();
+            camera.targetTexture = null;
+        }
         RenderTexture.active = rt;
         var image = new Texture2D(Width, Height, TextureFormat.RGB24, false);
         image.ReadPixels(new Rect(0, 0, Width, Height), 0, 0);
         image.Apply();
-        camera.targetTexture = null;
         RenderTexture.active = null;
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, image.EncodeToPNG());

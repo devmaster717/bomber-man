@@ -115,13 +115,11 @@ public sealed class GameView : MonoBehaviour
         return Direction.None;
     }
 
-    private GUIStyle _hud;
-
     private void OnGUI()
     {
         if (Game == null) return;
-        _hud ??= new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold };
-        _hud.fontSize = (int)(Screen.height * 0.04f);
+        Ui.Begin();
+        Ui.HudBar(0.17f);
         long elapsed = Game.Tick / Units.TicksPerSecond;
         long target = Game.TargetTicks / Units.TicksPerSecond;
         string hud = Text.Hud(StageNumber, Game.EnemiesRemaining, Ui.Clock(elapsed));
@@ -131,7 +129,7 @@ public sealed class GameView : MonoBehaviour
                       (b.HasRemoteControl ? "  " + Text.HeldRemote : "") +
                       (b.SpeedUpTicksLeft > 0 ? "  " + Text.HeldSpeed(Mathf.CeilToInt(b.SpeedUpTicksLeft / (float)Units.TicksPerSecond)) : "");
         if (held.Length > 0) hud += Environment.NewLine + held.Trim();
-        GUI.Label(new Rect(Screen.width * 0.02f, Screen.height * 0.01f, Screen.width * 0.85f, Screen.height * 0.12f), hud, _hud);
+        GUI.Label(new Rect(Screen.width * 0.03f, Screen.height * 0.015f, Screen.width * 0.85f, Screen.height * 0.12f), hud, Ui.Hud);
     }
 
     private int StageNumber => int.TryParse(name.Replace("Stage ", ""), out int n) ? n : 0;

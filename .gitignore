@@ -9,3 +9,7 @@ specification.txt
 
 # Test runs
 TestResults/
+
+# Written by Unity's performance-testing package during builds
+Game/Assets/Resources/PerformanceTestRun*.json
+Game/Assets/Resources/PerformanceTestRun*.json.meta

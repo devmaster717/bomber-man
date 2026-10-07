@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using BombArena.Core;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 /// <summary>
-/// The 3D view: the same grid game drawn with simple placeholder shapes under a tilted perspective camera that
-/// follows a bomber. Holds no rules: every frame it mirrors what the core says.
+/// The 3D view: the grid game drawn as a royal palace (see <see cref="PalaceArt"/>) under a tilted perspective camera
+/// that follows a bomber. Holds no rules: every frame it mirrors what the core says.
 /// World space: one unit per tile on the ground (y = 0), tile (x, y) centred at (x, 0, -y) so row 0 is the far side.
 /// </summary>
 public sealed class ArenaRenderer3D : IArenaView
@@ -12,32 +13,39 @@ public sealed class ArenaRenderer3D : IArenaView
     // Camera: tilted 62° down, high enough to show about 11 rows, like the 2D view.
     private const float Pitch = 62f, FieldOfView = 40f, Height = 11f;
 
-    // Blocks are a little lower than a tile is wide, so bombers behind them stay visible.
-    private const float BlockHeight = 0.8f;
-
     // Bombers are drawn a bit larger than their 0.6-tile hitbox so they read well among the blocks.
     private const float BomberScale = 1.25f;
 
-    private static readonly Color Background = new Color(0.07f, 0.09f, 0.13f);
+    private static readonly Color Background = new Color(0.04f, 0.03f, 0.05f);
 
     private readonly Game _game;
     private readonly Transform _root;
     private readonly Camera _camera;
-    private readonly GameObject[] _blocks, _fire;
+    private readonly List<Material> _ownMaterials = new List<Material>();
+
+    private readonly Transform[] _blocks;
+    private readonly Transform _blockRoot;
+    private readonly HashSet<Transform> _batched = new HashSet<Transform>();
     private readonly Tile[] _drawnTiles;
-    private readonly GameObject _exit;
-    private readonly Renderer _exitRenderer;
-    private readonly List<GameObject> _bombPool = new List<GameObject>();
-    private readonly List<Renderer> _bombBodies = new List<Renderer>();
-    private readonly List<GameObject> _powerUpPool = new List<GameObject>();
-    private readonly List<PowerUpKind?> _powerUpKinds = new List<PowerUpKind?>();
-    private readonly Material _bombMaterial = Materials.Solid(new Color(0.1f, 0.1f, 0.13f));
-    private readonly Material _remoteBombMaterial = Materials.Solid(new Color(0.55f, 0.12f, 0.12f));
+    private readonly ParticleSystem[] _flames;
+    private readonly bool[] _burning;
+    private readonly List<ParticleSystem> _bursts = new List<ParticleSystem>();
+
+    private readonly Transform _exit, _exitGlow;
+    private readonly Renderer _exitInner;
     private bool? _exitOpenDrawn;
-    private readonly Transform[] _bombers;
+
+    private readonly List<Transform> _bombPool = new List<Transform>();
+    private readonly List<Renderer> _bombBodies = new List<Renderer>();
+    private readonly HashSet<TilePos> _bombTiles = new HashSet<TilePos>(), _bombTilesNow = new HashSet<TilePos>();
+    private readonly List<(Light light, float age)> _flashes = new List<(Light, float)>();
+
+    private readonly Dictionary<PowerUpKind, List<Transform>> _powerUps = new Dictionary<PowerUpKind, List<Transform>>();
+
+    private readonly PalaceArt.BomberRig[] _bombers;
     private readonly Vector3[] _previous, _current;
-    private readonly List<EnemyModel> _enemies = new List<EnemyModel>();
-    private readonly float _savedShadowDistance;
+    private readonly List<PalaceArt.EnemyRig> _enemies = new List<PalaceArt.EnemyRig>();
+    private readonly List<Vector3> _enemyPrevious = new List<Vector3>(), _enemyCurrent = new List<Vector3>();
 
     public ArenaRenderer3D(Game game)
     {
@@ -45,53 +53,54 @@ public sealed class ArenaRenderer3D : IArenaView
         _root = new GameObject("Arena 3D").transform;
         var arena = game.Arena;
         int w = arena.Width, h = arena.Height;
+        var centre = new Vector3((w - 1) / 2f, 0f, -(h - 1) / 2f);
 
-        // One floor quad under the whole arena, its checker texture repeated once per tile.
-        var floor = Part(PrimitiveType.Quad, _root, Materials.Textured(PlaceholderSprites.For(Tile.Floor).texture, new Vector2(w, h)));
-        floor.transform.SetPositionAndRotation(new Vector3((w - 1) / 2f, 0f, -(h - 1) / 2f), Quaternion.Euler(90f, 0f, 0f));
-        floor.transform.localScale = new Vector3(w, h, 1f);
-        floor.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        // Polished marble checker floor: the texture holds 6 x 6 squares, so one square per tile.
+        var floorMaterial = Own(new Material(PalaceArt.Mat("Floor")) { mainTextureScale = new Vector2(w / 6f, h / 6f) });
+        var floor = PalaceArt.Part(_root, PalaceArt.Primitive(PrimitiveType.Quad), floorMaterial, centre, new Vector3(w, h, 1f), false);
+        floor.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
 
-        // A dark tabletop around the arena, for the far corners the tilted camera can see past the walls.
-        var table = Part(PrimitiveType.Quad, _root, Materials.Solid(new Color(0.17f, 0.2f, 0.25f)));
-        table.transform.SetPositionAndRotation(new Vector3((w - 1) / 2f, -0.02f, -(h - 1) / 2f), Quaternion.Euler(90f, 0f, 0f));
-        table.transform.localScale = new Vector3(w + 60f, h + 60f, 1f);
+        // Royal carpet all around, and a gold border along the arena's edge.
+        var carpetMaterial = Own(new Material(PalaceArt.Mat("Carpet")) { mainTextureScale = new Vector2((w + 40) / 2.5f, (h + 40) / 2.5f) });
+        var carpet = PalaceArt.Part(_root, PalaceArt.Primitive(PrimitiveType.Quad), carpetMaterial, centre + Vector3.down * 0.01f, new Vector3(w + 40f, h + 40f, 1f), false);
+        carpet.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        var gold = PalaceArt.Mat("Gold");
+        PalaceArt.Part(_root, PalaceArt.ChamferBox(new Vector3(w + 0.3f, 0.05f, 0.15f), 0.02f), gold, new Vector3(centre.x, 0.025f, 0.575f), Vector3.one, false);
+        PalaceArt.Part(_root, PalaceArt.ChamferBox(new Vector3(w + 0.3f, 0.05f, 0.15f), 0.02f), gold, new Vector3(centre.x, 0.025f, -(h - 1) - 0.575f), Vector3.one, false);
+        PalaceArt.Part(_root, PalaceArt.ChamferBox(new Vector3(0.15f, 0.05f, h + 0.3f), 0.02f), gold, new Vector3(-0.575f, 0.025f, centre.z), Vector3.one, false);
+        PalaceArt.Part(_root, PalaceArt.ChamferBox(new Vector3(0.15f, 0.05f, h + 0.3f), 0.02f), gold, new Vector3(w - 1 + 0.575f, 0.025f, centre.z), Vector3.one, false);
 
-        _blocks = new GameObject[w * h];
-        _fire = new GameObject[w * h];
+        _blocks = new Transform[w * h];
         _drawnTiles = new Tile[w * h];
+        _flames = new ParticleSystem[w * h];
+        _burning = new bool[w * h];
+        // All blocks are merged into a few big meshes (static batching): hundreds of pieces, few draw calls.
+        // A crate that breaks is switched off, which batching allows.
+        _blockRoot = new GameObject("Blocks").transform;
+        _blockRoot.SetParent(_root, false);
         for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++)
-        {
-            int i = y * w + x;
-            _blocks[i] = Part(PrimitiveType.Cube, _root, null);
-            _blocks[i].transform.position = new Vector3(x, BlockHeight / 2f, -y);
-            _blocks[i].transform.localScale = new Vector3(1f, BlockHeight, 1f);
-            ShowTile(i, arena[x, y]);
+            ShowTile(x, y, arena[x, y], burst: false);
+        foreach (var block in _blocks)
+            if (block != null) _batched.Add(block);
+        StaticBatchingUtility.Combine(_blockRoot.gameObject);
 
-            // Fire: a low glowing slab filling the tile.
-            _fire[i] = Part(PrimitiveType.Cube, _root, Materials.Glowing(PlaceholderSprites.Fire.texture));
-            _fire[i].transform.position = new Vector3(x, 0.2f, -y);
-            _fire[i].transform.localScale = new Vector3(0.95f, 0.4f, 0.95f);
-            _fire[i].GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            _fire[i].SetActive(false);
-        }
+        _exit = PalaceArt.Exit(_root, out _exitInner);
+        if (game.ExitTile is TilePos e) _exit.position = new Vector3(e.X, 0f, -e.Y);
+        _exitGlow = PalaceArt.Part(_exit, PalaceArt.Primitive(PrimitiveType.Quad), PalaceArt.Tint("Ring", new Color(0.6f, 1.6f, 2.2f)),
+            new Vector3(0, 0.05f, 0), Vector3.one * 1.3f, false).transform;
+        _exitGlow.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        _exit.gameObject.SetActive(false);
 
-        _exit = Part(PrimitiveType.Quad, _root, Materials.Textured(PlaceholderSprites.Exit(false).texture));
-        _exitRenderer = _exit.GetComponent<Renderer>();
-        _exit.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-        if (game.ExitTile is TilePos e) _exit.transform.position = new Vector3(e.X, 0.01f, -e.Y);
-        _exit.SetActive(false);
-
-        _bombers = new Transform[game.Bombers.Count];
+        _bombers = new PalaceArt.BomberRig[game.Bombers.Count];
         _previous = new Vector3[_bombers.Length];
         _current = new Vector3[_bombers.Length];
         for (int i = 0; i < _bombers.Length; i++)
         {
-            _bombers[i] = BomberModel(i);
+            _bombers[i] = PalaceArt.Bomber(_root, i);
+            _bombers[i].Root.localScale = Vector3.one * BomberScale;
             _previous[i] = _current[i] = World(game.Bombers[i].X, game.Bombers[i].Y);
-            _bombers[i].position = _current[i];
-            _bombers[i].rotation = Quaternion.Euler(0f, 180f, 0f); // facing the camera
+            _bombers[i].Root.SetPositionAndRotation(_current[i], Quaternion.Euler(0f, 180f, 0f)); // facing the camera
         }
         SyncEnemyList();
 
@@ -103,10 +112,29 @@ public sealed class ArenaRenderer3D : IArenaView
         _camera.clearFlags = CameraClearFlags.SolidColor;
         _camera.backgroundColor = Background;
 
-        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-        RenderSettings.ambientLight = new Color(0.5f, 0.5f, 0.55f);
-        _savedShadowDistance = QualitySettings.shadowDistance;
-        QualitySettings.shadowDistance = 30f;
+        PalaceArt.Light();
+        PalaceArt.Finish(_root, _camera, threeD: true);
+
+        // The polished floor and the gold reflect the arena itself, captured once now it is built.
+        var probe = new GameObject("Reflections").AddComponent<ReflectionProbe>();
+        probe.transform.SetParent(_root, false);
+        probe.transform.position = centre + Vector3.up * 1.2f;
+        probe.mode = ReflectionProbeMode.Realtime;
+        probe.refreshMode = ReflectionProbeRefreshMode.ViaScripting;
+        probe.timeSlicingMode = ReflectionProbeTimeSlicingMode.NoTimeSlicing;
+        probe.size = new Vector3(w + 4f, 8f, h + 4f);
+        probe.boxProjection = true;
+        probe.resolution = 128;
+        probe.hdr = true;
+        probe.clearFlags = ReflectionProbeClearFlags.SolidColor;
+        probe.backgroundColor = new Color(0.3f, 0.12f, 0.08f);
+        probe.RenderProbe();
+    }
+
+    private Material Own(Material m)
+    {
+        _ownMaterials.Add(m);
+        return m;
     }
 
     private static Vector3 World(int x, int y) => new Vector3(x / (float)Units.PerTile, 0f, -y / (float)Units.PerTile);
@@ -121,93 +149,217 @@ public sealed class ArenaRenderer3D : IArenaView
         SyncEnemyList();
         for (int i = 0; i < _enemies.Count; i++)
         {
-            _enemies[i].Previous = _enemies[i].Current;
-            _enemies[i].Current = World(_game.Enemies[i].X, _game.Enemies[i].Y);
+            _enemyPrevious[i] = _enemyCurrent[i];
+            _enemyCurrent[i] = World(_game.Enemies[i].X, _game.Enemies[i].Y);
         }
     }
 
     public void Draw(float t)
     {
+        float time = Time.time;
         var arena = _game.Arena;
         for (int y = 0; y < arena.Height; y++)
         for (int x = 0; x < arena.Width; x++)
         {
             int i = y * arena.Width + x;
-            if (_drawnTiles[i] != arena[x, y]) ShowTile(i, arena[x, y]);
+            if (_drawnTiles[i] != arena[x, y]) ShowTile(x, y, arena[x, y], burst: true);
             bool burning = _game.IsBurning(x, y);
-            _fire[i].SetActive(burning);
+            if (burning == _burning[i]) continue;
+            _burning[i] = burning;
             if (burning)
             {
-                float flicker = 0.4f + 0.08f * Mathf.Sin(Time.time * 30f + x * 1.7f + y * 2.3f);
-                _fire[i].transform.localScale = new Vector3(0.95f, flicker, 0.95f);
-                _fire[i].transform.position = new Vector3(x, flicker / 2f, -y);
+                if (_flames[i] == null)
+                {
+                    _flames[i] = PalaceArt.Flames(_root, Vector3.up);
+                    _flames[i].transform.position = new Vector3(x, 0.05f, -y);
+                }
+                _flames[i].Play();
             }
-        }
-
-        _exit.SetActive(_game.ExitRevealed);
-        if (_game.ExitRevealed && _exitOpenDrawn != _game.ExitOpen)
-        {
-            _exitOpenDrawn = _game.ExitOpen;
-            _exitRenderer.sharedMaterial = Materials.Textured(PlaceholderSprites.Exit(_game.ExitOpen).texture);
-        }
-
-        int b = 0;
-        foreach (var bomb in _game.Bombs)
-        {
-            if (b == _bombPool.Count) AddBomb();
-            var go = _bombPool[b];
-            go.SetActive(true);
-            // Pulse as the fuse burns down; remote bombs sit still with a red tint.
-            float pulse = bomb.FuseLeft is int left ? 1f + 0.08f * Mathf.Sin(left * 0.9f) : 1f;
-            go.transform.position = new Vector3(bomb.Tile.X, 0f, -bomb.Tile.Y);
-            go.transform.localScale = Vector3.one * pulse;
-            _bombBodies[b].sharedMaterial = bomb.IsRemote ? _remoteBombMaterial : _bombMaterial;
-            b++;
-        }
-        for (; b < _bombPool.Count; b++) _bombPool[b].SetActive(false);
-
-        int p = 0;
-        foreach (var powerUp in _game.PowerUps)
-        {
-            if (!powerUp.Revealed || powerUp.Kind is not PowerUpKind kind) continue;
-            if (p == _powerUpPool.Count)
+            else if (_flames[i] != null)
             {
-                var card = Part(PrimitiveType.Cube, _root, null);
-                card.transform.localScale = new Vector3(0.7f, 0.12f, 0.7f);
-                _powerUpPool.Add(card);
-                _powerUpKinds.Add(null);
+                _flames[i].Stop(true, ParticleSystemStopBehavior.StopEmitting);
             }
-            var go = _powerUpPool[p];
-            go.SetActive(true);
-            if (_powerUpKinds[p] != kind)
-            {
-                _powerUpKinds[p] = kind;
-                go.GetComponent<Renderer>().sharedMaterial = Materials.Textured(PlaceholderSprites.PowerUp(kind).texture);
-            }
-            p++;
-            // A gently bobbing card, picture side up.
-            float bob = 0.15f + 0.05f * Mathf.Sin(Time.time * 4f + powerUp.Tile.X);
-            go.transform.SetPositionAndRotation(new Vector3(powerUp.Tile.X, bob, -powerUp.Tile.Y), Quaternion.Euler(0f, 180f, 0f));
         }
-        for (; p < _powerUpPool.Count; p++) _powerUpPool[p].SetActive(false);
+
+        DrawBombs();
+        DrawFlashes();
+
+        _exit.gameObject.SetActive(_game.ExitRevealed);
+        if (_game.ExitRevealed)
+        {
+            if (_exitOpenDrawn != _game.ExitOpen)
+            {
+                _exitOpenDrawn = _game.ExitOpen;
+                _exitInner.sharedMaterial = PalaceArt.ExitInner(_game.ExitOpen);
+                _exitGlow.gameObject.SetActive(_game.ExitOpen);
+            }
+            if (_game.ExitOpen) _exitGlow.localScale = Vector3.one * (1.2f + 0.12f * Mathf.Sin(time * 4f));
+        }
+
+        DrawPowerUps(time);
 
         SyncEnemyList();
         for (int i = 0; i < _enemies.Count; i++)
         {
             var e = _game.Enemies[i];
-            var model = _enemies[i];
-            model.Root.gameObject.SetActive(e.Alive && e.Opacity > 0f);
-            model.Root.position = Vector3.Lerp(model.Previous, model.Current, t);
-            if (model.Fades) model.SetOpacity(e.Opacity);
+            var rig = _enemies[i];
+            bool shown = e.Alive && e.Opacity > 0f;
+            rig.Root.gameObject.SetActive(shown);
+            if (!shown) continue;
+            rig.Root.position = Vector3.Lerp(_enemyPrevious[i], _enemyCurrent[i], t);
+            rig.Pose(time);
+            if (rig.Fading.Count > 0) rig.SetOpacity(e.Opacity);
         }
 
         for (int i = 0; i < _bombers.Length; i++)
         {
-            _bombers[i].gameObject.SetActive(_game.Bombers[i].Alive);
-            _bombers[i].position = Vector3.Lerp(_previous[i], _current[i], t);
-            // Turn to face the way the bomber is walking.
+            var rig = _bombers[i];
+            rig.Root.gameObject.SetActive(_game.Bombers[i].Alive);
+            var before = rig.Root.position;
+            var now = Vector3.Lerp(_previous[i], _current[i], t);
+            rig.Root.position = now;
+            // Turn smoothly to face the way the bomber is walking.
             var step = _current[i] - _previous[i];
-            if (step.sqrMagnitude > 1e-6f) _bombers[i].rotation = Quaternion.LookRotation(step, Vector3.up);
+            if (step.sqrMagnitude > 1e-6f)
+                rig.Root.rotation = Quaternion.Slerp(rig.Root.rotation, Quaternion.LookRotation(step, Vector3.up), 0.35f);
+            rig.Pose((now - before).magnitude, time);
+        }
+    }
+
+    private void DrawBombs()
+    {
+        _bombTilesNow.Clear();
+        int b = 0;
+        foreach (var bomb in _game.Bombs)
+        {
+            if (b == _bombPool.Count)
+            {
+                _bombPool.Add(PalaceArt.Bomb(_root, out var body));
+                _bombBodies.Add(body);
+            }
+            var model = _bombPool[b];
+            model.gameObject.SetActive(true);
+            // Pulse as the fuse burns down; remote bombs are dark red and still.
+            float pulse = bomb.FuseLeft is int left ? 1f + 0.07f * Mathf.Sin(left * 0.9f) : 1f;
+            model.position = new Vector3(bomb.Tile.X, 0f, -bomb.Tile.Y);
+            model.localScale = Vector3.one * pulse;
+            _bombBodies[b].sharedMaterial = PalaceArt.BombMaterial(bomb.IsRemote);
+            _bombTilesNow.Add(bomb.Tile);
+            b++;
+        }
+        for (; b < _bombPool.Count; b++) _bombPool[b].gameObject.SetActive(false);
+
+        // A bomb that has just gone off lights up its surroundings for a moment.
+        foreach (var tile in _bombTiles)
+            if (!_bombTilesNow.Contains(tile) && _game.IsBurning(tile)) Flash(tile);
+        _bombTiles.Clear();
+        _bombTiles.UnionWith(_bombTilesNow);
+    }
+
+    private void Flash(TilePos tile)
+    {
+        int i = _flashes.FindIndex(f => f.age >= 1f);
+        Light light;
+        if (i < 0)
+        {
+            light = new GameObject("Blast light").AddComponent<Light>();
+            light.transform.SetParent(_root, false);
+            light.type = LightType.Point;
+            light.color = new Color(1f, 0.62f, 0.28f);
+            light.range = 4.5f;
+            light.shadows = LightShadows.None;
+            _flashes.Add((light, 0f));
+            i = _flashes.Count - 1;
+        }
+        light = _flashes[i].light;
+        light.transform.position = new Vector3(tile.X, 0.9f, -tile.Y);
+        light.enabled = true;
+        _flashes[i] = (light, 0f);
+    }
+
+    private void DrawFlashes()
+    {
+        for (int i = 0; i < _flashes.Count; i++)
+        {
+            var (light, age) = _flashes[i];
+            if (age >= 1f) continue;
+            age = Mathf.Min(1f, age + Time.deltaTime / 0.55f);
+            light.intensity = 7f * (1f - age) * (1f - age);
+            light.enabled = age < 1f;
+            _flashes[i] = (light, age);
+        }
+    }
+
+    private readonly Dictionary<PowerUpKind, int> _powerUpsUsed = new Dictionary<PowerUpKind, int>();
+
+    private void DrawPowerUps(float time)
+    {
+        var used = _powerUpsUsed;
+        used.Clear();
+        foreach (var powerUp in _game.PowerUps)
+        {
+            if (!powerUp.Revealed || powerUp.Kind is not PowerUpKind kind) continue;
+            if (!_powerUps.TryGetValue(kind, out var pool)) _powerUps[kind] = pool = new List<Transform>();
+            used.TryGetValue(kind, out int n);
+            if (n == pool.Count) pool.Add(PalaceArt.PowerUp(_root, kind));
+            var model = pool[n];
+            used[kind] = n + 1;
+            model.gameObject.SetActive(true);
+            // Floating gently above the floor, rocking a little.
+            float phase = time * 2.4f + powerUp.Tile.X * 0.7f + powerUp.Tile.Y;
+            model.SetPositionAndRotation(new Vector3(powerUp.Tile.X, 0.22f + 0.05f * Mathf.Sin(phase), -powerUp.Tile.Y),
+                Quaternion.Euler(-12f, 14f * Mathf.Sin(phase * 0.5f), 0f));
+        }
+        foreach (var (kind, pool) in _powerUps)
+        {
+            used.TryGetValue(kind, out int n);
+            for (int i = n; i < pool.Count; i++) pool[i].gameObject.SetActive(false);
+        }
+    }
+
+    private void ShowTile(int x, int y, Tile tile, bool burst)
+    {
+        int i = y * _game.Arena.Width + x;
+        var was = _drawnTiles[i];
+        _drawnTiles[i] = tile;
+        if (_blocks[i] != null)
+        {
+            if (_batched.Contains(_blocks[i])) _blocks[i].gameObject.SetActive(false);
+            else PalaceArt.Remove(_blocks[i].gameObject);
+        }
+        _blocks[i] = null;
+        var arena = _game.Arena;
+        bool outer = x == 0 || y == 0 || x == arena.Width - 1 || y == arena.Height - 1;
+        _blocks[i] = tile switch
+        {
+            Tile.HardBlock => outer ? PalaceArt.Wall(_blockRoot) : PalaceArt.Pillar(_blockRoot),
+            Tile.SoftBlock => PalaceArt.Crate(_blockRoot),
+            _ => null,
+        };
+        if (_blocks[i] != null) _blocks[i].position = new Vector3(x, 0f, -y);
+
+        // A crate breaking scatters gold sparkles.
+        if (burst && was == Tile.SoftBlock && tile != Tile.SoftBlock)
+        {
+            var ps = _bursts.Find(p => !p.IsAlive());
+            if (ps == null) _bursts.Add(ps = PalaceArt.Burst(_root, Vector3.up, new Color(1.8f, 1.4f, 0.7f)));
+            ps.transform.position = new Vector3(x, 0.4f, -y);
+            ps.Play();
+        }
+    }
+
+    private void SyncEnemyList()
+    {
+        for (int i = _enemies.Count; i < _game.Enemies.Count; i++)
+        {
+            var e = _game.Enemies[i];
+            var rig = PalaceArt.Enemy(_root, e.Kind);
+            rig.Seed(i);
+            var p = World(e.X, e.Y);
+            rig.Root.SetPositionAndRotation(p, Quaternion.Euler(0f, 180f, 0f)); // eyes towards the camera
+            _enemies.Add(rig);
+            _enemyPrevious.Add(p);
+            _enemyCurrent.Add(p);
         }
     }
 
@@ -222,7 +374,7 @@ public sealed class ArenaRenderer3D : IArenaView
         float halfW = Mathf.Sqrt(Height * Height + back * back) * Mathf.Tan(half) * _camera.aspect;
 
         int w = _game.Arena.Width, h = _game.Arena.Height;
-        var target = _bombers[bomber].position;
+        var target = _bombers[bomber].Root.position;
         float x = Clamp(target.x, -0.5f + halfW, w - 0.5f - halfW, (w - 1) / 2f);
         float z = Clamp(target.z, -(h - 0.5f) + behind, 0.5f - ahead, -(h - 1) / 2f);
         _camera.transform.SetPositionAndRotation(new Vector3(x, Height, z - back), Quaternion.Euler(Pitch, 0f, 0f));
@@ -233,188 +385,7 @@ public sealed class ArenaRenderer3D : IArenaView
 
     public void Destroy()
     {
-        QualitySettings.shadowDistance = _savedShadowDistance;
-        Remove(_root.gameObject);
-    }
-
-    // Destroy outside play mode too, so the editor can render previews (see Previews.cs).
-    private static void Remove(Object o)
-    {
-        if (Application.isPlaying) Object.Destroy(o);
-        else Object.DestroyImmediate(o);
-    }
-
-    // ---- models ----
-
-    private void ShowTile(int i, Tile tile)
-    {
-        _drawnTiles[i] = tile;
-        bool solid = tile == Tile.HardBlock || tile == Tile.SoftBlock;
-        _blocks[i].SetActive(solid);
-        if (solid) _blocks[i].GetComponent<Renderer>().sharedMaterial = Materials.Textured(PlaceholderSprites.For(tile).texture);
-    }
-
-    private void AddBomb()
-    {
-        var root = new GameObject("Bomb").transform;
-        root.SetParent(_root, false);
-        var body = Part(PrimitiveType.Sphere, root, _bombMaterial);
-        body.transform.localPosition = new Vector3(0f, 0.38f, 0f);
-        body.transform.localScale = Vector3.one * 0.76f;
-        var fuse = Part(PrimitiveType.Cylinder, root, Materials.Solid(new Color(0.85f, 0.75f, 0.55f)));
-        fuse.transform.localPosition = new Vector3(0f, 0.8f, 0f);
-        fuse.transform.localScale = new Vector3(0.08f, 0.08f, 0.08f);
-        var spark = Part(PrimitiveType.Sphere, root, Materials.Glowing(PlaceholderSprites.Fire.texture));
-        spark.transform.localPosition = new Vector3(0f, 0.9f, 0f);
-        spark.transform.localScale = Vector3.one * 0.14f;
-        _bombPool.Add(root.gameObject);
-        _bombBodies.Add(body.GetComponent<Renderer>());
-    }
-
-    /// <summary>A bomber: shirt-coloured body, round head with eyes, and feet; slot colours match the 2D sprites.</summary>
-    private Transform BomberModel(int slot)
-    {
-        var root = new GameObject($"Bomber {slot}").transform;
-        root.SetParent(_root, false);
-        root.localScale = Vector3.one * BomberScale;
-        var shirt = Materials.Solid(PlaceholderSprites.SlotShirt(slot));
-        var feet = Materials.Solid(PlaceholderSprites.SlotFeet(slot));
-        var skin = Materials.Solid(new Color(1f, 0.88f, 0.76f));
-        var dark = Materials.Solid(new Color(0.1f, 0.1f, 0.1f));
-
-        Place(Part(PrimitiveType.Cylinder, root, shirt), new Vector3(0f, 0.32f, 0f), new Vector3(0.46f, 0.2f, 0.46f));
-        Place(Part(PrimitiveType.Sphere, root, skin), new Vector3(0f, 0.72f, 0f), Vector3.one * 0.46f);
-        Place(Part(PrimitiveType.Sphere, root, dark), new Vector3(-0.09f, 0.75f, 0.2f), Vector3.one * 0.07f);
-        Place(Part(PrimitiveType.Sphere, root, dark), new Vector3(0.09f, 0.75f, 0.2f), Vector3.one * 0.07f);
-        Place(Part(PrimitiveType.Sphere, root, shirt), new Vector3(0f, 0.97f, 0f), Vector3.one * 0.1f); // pompom
-        Place(Part(PrimitiveType.Cube, root, feet), new Vector3(-0.12f, 0.06f, 0.04f), new Vector3(0.15f, 0.12f, 0.24f));
-        Place(Part(PrimitiveType.Cube, root, feet), new Vector3(0.12f, 0.06f, 0.04f), new Vector3(0.15f, 0.12f, 0.24f));
-        return root;
-    }
-
-    private void SyncEnemyList()
-    {
-        for (int i = _enemies.Count; i < _game.Enemies.Count; i++)
-        {
-            var e = _game.Enemies[i];
-            var model = new EnemyModel(e.Kind, _root, $"{e.Kind} {i}");
-            model.Previous = model.Current = World(e.X, e.Y);
-            model.Root.position = model.Current;
-            _enemies.Add(model);
-        }
-    }
-
-    /// <summary>
-    /// An enemy: a coloured body with big eyes looking at the camera. Each kind has its own shape so they can be told
-    /// apart at a glance: Walker a ball, Runner a tall red bean, Wall-passer a green block, Phantom a see-through ghost.
-    /// </summary>
-    private sealed class EnemyModel
-    {
-        public readonly Transform Root;
-        public readonly bool Fades;
-        public Vector3 Previous, Current;
-        private readonly List<(Renderer renderer, Color colour)> _parts = new List<(Renderer, Color)>();
-        private readonly MaterialPropertyBlock _block = new MaterialPropertyBlock();
-
-        public EnemyModel(EnemyKind kind, Transform parent, string name)
-        {
-            Root = new GameObject(name).transform;
-            Root.SetParent(parent, false);
-            Fades = kind == EnemyKind.Phantom;
-            var colour = kind switch
-            {
-                EnemyKind.Runner => new Color(0.88f, 0.22f, 0.24f),
-                EnemyKind.Phantom => new Color(0.85f, 0.9f, 1f, 0.8f),
-                EnemyKind.WallPasser => new Color(0.18f, 0.64f, 0.48f),
-                _ => new Color(0.56f, 0.27f, 0.79f),
-            };
-            var (shape, scale, y) = kind switch
-            {
-                EnemyKind.Runner => (PrimitiveType.Sphere, new Vector3(0.55f, 0.8f, 0.55f), 0.4f),
-                EnemyKind.WallPasser => (PrimitiveType.Cube, new Vector3(0.62f, 0.62f, 0.62f), 0.31f),
-                _ => (PrimitiveType.Sphere, Vector3.one * 0.72f, 0.38f),
-            };
-            Add(shape, colour, new Vector3(0f, y, 0f), scale);
-            float eyeY = y + scale.y * 0.15f, eyeZ = -scale.z * 0.45f; // on the side facing the camera
-            Add(PrimitiveType.Sphere, Color.white, new Vector3(-0.12f, eyeY, eyeZ), Vector3.one * 0.18f);
-            Add(PrimitiveType.Sphere, Color.white, new Vector3(0.12f, eyeY, eyeZ), Vector3.one * 0.18f);
-            Add(PrimitiveType.Sphere, new Color(0.07f, 0.07f, 0.07f), new Vector3(-0.12f, eyeY, eyeZ - 0.07f), Vector3.one * 0.08f);
-            Add(PrimitiveType.Sphere, new Color(0.07f, 0.07f, 0.07f), new Vector3(0.12f, eyeY, eyeZ - 0.07f), Vector3.one * 0.08f);
-        }
-
-        private void Add(PrimitiveType shape, Color colour, Vector3 position, Vector3 scale)
-        {
-            var part = Part(shape, Root, Fades ? Materials.SeeThrough(colour) : Materials.Solid(colour));
-            Place(part, position, scale);
-            var r = part.GetComponent<Renderer>();
-            if (Fades) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            _parts.Add((r, colour));
-        }
-
-        /// <summary>The Phantom fades in and out where it stands.</summary>
-        public void SetOpacity(float opacity)
-        {
-            foreach (var (r, colour) in _parts)
-            {
-                _block.SetColor("_Color", new Color(colour.r, colour.g, colour.b, colour.a * opacity));
-                r.SetPropertyBlock(_block);
-            }
-        }
-    }
-
-    private static GameObject Part(PrimitiveType shape, Transform parent, Material material)
-    {
-        var go = GameObject.CreatePrimitive(shape);
-        Remove(go.GetComponent<Collider>()); // drawing only; the core does all collisions
-        go.transform.SetParent(parent, false);
-        if (material != null) go.GetComponent<Renderer>().sharedMaterial = material;
-        return go;
-    }
-
-    private static void Place(GameObject go, Vector3 localPosition, Vector3 localScale)
-    {
-        go.transform.localPosition = localPosition;
-        go.transform.localScale = localScale;
-    }
-
-    /// <summary>
-    /// Shared materials, made once per colour or texture. The shaders are listed as always included in the build
-    /// (see Builds.cs), because nothing else in the project references them.
-    /// </summary>
-    private static class Materials
-    {
-        public const string LitShader = "Legacy Shaders/Diffuse";
-        public const string SeeThroughShader = "Legacy Shaders/Transparent/Diffuse";
-        public const string GlowShader = "Unlit/Texture";
-
-        private static readonly Dictionary<string, Material> Cache = new Dictionary<string, Material>();
-
-        public static Material Solid(Color c) => Get("solid" + c, () => new Material(Find(LitShader)) { color = c });
-
-        public static Material SeeThrough(Color c) => Get("clear" + c, () => new Material(Find(SeeThroughShader)) { color = c });
-
-        public static Material Textured(Texture texture, Vector2? tiling = null) =>
-            Get("tex" + texture.GetInstanceID() + tiling, () =>
-            {
-                var m = new Material(Find(LitShader)) { mainTexture = texture };
-                if (tiling is Vector2 t)
-                {
-                    texture.wrapMode = TextureWrapMode.Repeat;
-                    m.mainTextureScale = t;
-                }
-                return m;
-            });
-
-        public static Material Glowing(Texture texture) =>
-            Get("glow" + texture.GetInstanceID(), () => new Material(Find(GlowShader)) { mainTexture = texture });
-
-        // If a shader was left out of the build, draw unlit rather than fail.
-        private static Shader Find(string name) => Shader.Find(name) ?? Shader.Find("Sprites/Default");
-
-        private static Material Get(string key, System.Func<Material> make)
-        {
-            if (!Cache.TryGetValue(key, out var m) || m == null) Cache[key] = m = make();
-            return m;
-        }
+        PalaceArt.Remove(_root.gameObject);
+        foreach (var m in _ownMaterials) PalaceArt.Remove(m);
     }
 }
