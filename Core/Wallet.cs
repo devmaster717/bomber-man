@@ -69,26 +69,32 @@ namespace BombArena.Core
             }
         }
 
+        /// <summary>
+        /// Credits the lives that came back since the countdown started, by the phone's clock, so time with the app
+        /// in the background or closed counts. Saves only when something changed (screens call this every frame).
+        /// </summary>
         public void Refresh()
         {
             long now = _now();
+            var (livesBefore, startBefore) = (_profile.Lives, _profile.RegenStartedAt);
             if (_profile.Lives >= RegenCap)
             {
                 _profile.RegenStartedAt = null;
-                return;
             }
-
-            long start = _profile.RegenStartedAt ?? now;
-            if (start > now) start = now; // the clock went backwards; restart the period rather than freeze it
-            long periods = (now - start) / RegenSeconds;
-            if (periods > 0)
+            else
             {
-                long add = Math.Min(periods, RegenCap - _profile.Lives);
-                _profile.Lives += (int)add;
-                start += periods * RegenSeconds;
+                long start = _profile.RegenStartedAt ?? now;
+                if (start > now) start = now; // the clock went backwards; restart the period rather than freeze it
+                long periods = (now - start) / RegenSeconds;
+                if (periods > 0)
+                {
+                    long add = Math.Min(periods, RegenCap - _profile.Lives);
+                    _profile.Lives += (int)add;
+                    start += periods * RegenSeconds;
+                }
+                _profile.RegenStartedAt = _profile.Lives >= RegenCap ? (long?)null : start;
             }
-            _profile.RegenStartedAt = _profile.Lives >= RegenCap ? (long?)null : start;
-            _save();
+            if (_profile.Lives != livesBefore || _profile.RegenStartedAt != startBefore) _save();
         }
 
         public void AddJewels(long amount)

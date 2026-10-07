@@ -125,6 +125,19 @@ public class WalletTests
     }
 
     [Test]
+    public void Checking_the_lives_saves_only_when_something_changed()
+    {
+        // The home screen refreshes every frame; that must not rewrite the save every frame.
+        var w = Wallet(new PlayerProfile { Lives = 7 });
+        int before = _saves;
+        for (int i = 0; i < 100; i++) { _now += 1; w.Refresh(); }
+        Assert.That(_saves, Is.EqualTo(before), "100 seconds in, no life has come back yet");
+        _now += 200; w.Refresh();
+        Assert.That(w.Lives, Is.EqualTo(8));
+        Assert.That(_saves, Is.EqualTo(before + 1), "a life came back: saved once");
+    }
+
+    [Test]
     public void Profile_round_trips_through_its_save_format()
     {
         var p = new PlayerProfile { Jewels = 1234, Lives = 13, Nickname = "Sasha", Avatar = 3, PadOnRight = true, View3D = false };
