@@ -1,8 +1,9 @@
 # Builds Game/Builds/BombArena.apk from the command line. Exit code 0 on success.
 # -Release makes a signed Game/Builds/BombArena.aab (for Google Play) and BombArena-release.apk, reading the keystore
 # from BOMBARENA_KEYSTORE, BOMBARENA_KEYSTORE_PASS, BOMBARENA_KEY_ALIAS and BOMBARENA_KEY_PASS (see issue #42).
-# -Offline builds without the network (after one online build has filled Gradle's cache): Gradle runs with
-# --offline and Android's sdkmanager is cut off so it lists the installed SDK instead of fetching remote lists.
+# -Offline builds without the network: Gradle runs with --offline and takes its libraries from Tools/offline-maven
+# (made by Tools/Make-OfflineKit.ps1) or, without that folder, from its cache of an earlier online build. Android's
+# sdkmanager is cut off so it lists the installed SDK instead of fetching remote lists.
 param(
     [string]$Unity = "D:\Unity\6000.0.84f1\Editor\Unity.exe",
     [string]$Log = "C:\Temp\bombarena-build.log",
@@ -26,8 +27,19 @@ if ($Offline) {
 if (System.getenv('BOMBARENA_GRADLE_OFFLINE') == '1') {
     gradle.startParameter.offline = true
     println 'BombArena: Gradle is running offline'
+    def kit = System.getenv('BOMBARENA_MAVEN_KIT')
+    if (kit) {
+        // Searched before the project's own repositories (Google, Maven Central), which offline can't reach.
+        beforeSettings { settings ->
+            settings.pluginManagement.repositories { maven { url = new File(kit).toURI() } }
+            settings.dependencyResolutionManagement.repositories { maven { url = new File(kit).toURI() } }
+        }
+        println "BombArena: libraries from $kit"
+    }
 }
 '@
+    $kit = Join-Path $PSScriptRoot "offline-maven"
+    $env:BOMBARENA_MAVEN_KIT = if (Test-Path $kit) { (Resolve-Path $kit).Path } else { "" }
     $env:BOMBARENA_GRADLE_OFFLINE = "1"
     # sdkmanager would otherwise wait on remote package lists; a dead proxy makes it give up at once.
     $env:SDKMANAGER_OPTS = "-Dhttp.proxyHost=127.0.0.1 -Dhttp.proxyPort=9 -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=9"
