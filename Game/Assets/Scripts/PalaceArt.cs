@@ -464,7 +464,7 @@ public static class PalaceArt
         main.simulationSpace = ParticleSystemSimulationSpace.World;
         main.maxParticles = 60;
         var emission = ps.emission;
-        emission.rateOverTime = 70f;
+        emission.rateOverTime = GraphicsQuality.High ? 70f : 35f;
         var shape = ps.shape;
         shape.shapeType = ParticleSystemShapeType.Box;
         shape.scale = new Vector3(0.75f, 0.75f, 0.05f);
@@ -530,7 +530,7 @@ public static class PalaceArt
     public static Volume Finish(Transform parent, Camera camera, bool threeD)
     {
         var data = camera.GetUniversalAdditionalCameraData();
-        data.renderPostProcessing = true;
+        data.renderPostProcessing = GraphicsQuality.High;
         data.antialiasing = AntialiasingMode.None; // MSAA from the pipeline asset
 
         var profile = ScriptableObject.CreateInstance<VolumeProfile>();

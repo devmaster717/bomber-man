@@ -67,6 +67,7 @@ public sealed class RoundView : MonoBehaviour
         v._controls.PadOnRight = settings.PadOnRight;
         v._controls.Scale = settings.ButtonScalePercent / 100f;
         v._threeD = settings.View3D;
+        Screen.sleepTimeout = SleepTimeout.NeverSleep; // no dimming mid-round
         return v;
     }
 
@@ -78,6 +79,7 @@ public sealed class RoundView : MonoBehaviour
 
     private void OnDestroy()
     {
+        Screen.sleepTimeout = SleepTimeout.SystemSetting;
         _renderer?.Destroy();
         if (_guest != null) _guest.Updated -= OnSnapshot;
     }

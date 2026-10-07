@@ -1,5 +1,4 @@
 using System.IO;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEditor.Rendering.Universal.ShaderGUI;
@@ -42,12 +41,31 @@ public static class PalaceSetup
         foreach (var (key, build, top) in PalaceSprites.All())
         {
             var texture = PalaceSprites.Render(build, top);
-            var png = texture.EncodeToPNG();
-            Object.DestroyImmediate(texture);
             var path = Sprites + key + ".png";
-            if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(png)) File.WriteAllBytes(path, png);
+            if (!File.Exists(path) || VisiblyDifferent(texture, File.ReadAllBytes(path))) File.WriteAllBytes(path, texture.EncodeToPNG());
+            Object.DestroyImmediate(texture);
         }
         AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+    }
+
+    // Rendering the same model twice can differ by a few levels in a few pixels (anti-aliasing); ignore that.
+    private static bool VisiblyDifferent(Texture2D now, byte[] savedPng)
+    {
+        var saved = new Texture2D(2, 2);
+        bool different = !saved.LoadImage(savedPng) || saved.width != now.width || saved.height != now.height;
+        if (!different)
+        {
+            var a = now.GetPixels32();
+            var b = saved.GetPixels32();
+            int changed = 0;
+            for (int i = 0; i < a.Length; i++)
+                if (System.Math.Abs(a[i].r - b[i].r) > 8 || System.Math.Abs(a[i].g - b[i].g) > 8 ||
+                    System.Math.Abs(a[i].b - b[i].b) > 8 || System.Math.Abs(a[i].a - b[i].a) > 8)
+                    changed++;
+            different = changed > a.Length / 200; // more than 0.5% of pixels
+        }
+        Object.DestroyImmediate(saved);
+        return different;
     }
 
     private static void EnsurePipeline()

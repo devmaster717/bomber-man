@@ -32,10 +32,15 @@ public sealed class GameView : MonoBehaviour
         view._controls = view.gameObject.AddComponent<TouchControls>();
         view.ApplySettings(settings);
         view.HookFeedback();
+        Screen.sleepTimeout = SleepTimeout.NeverSleep; // no dimming mid-stage
         return view;
     }
 
-    private void OnDestroy() => _renderer?.Destroy();
+    private void OnDestroy()
+    {
+        _renderer?.Destroy();
+        Screen.sleepTimeout = SleepTimeout.SystemSetting;
+    }
 
     /// <summary>
     /// Settings that matter in play: the control layout (joystick or D-pad, button size, left-handed mirror) and the

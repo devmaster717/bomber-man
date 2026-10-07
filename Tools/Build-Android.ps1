@@ -22,6 +22,7 @@ if ($Offline) {
 // Installed by BomberMan's Tools/Build-Android.ps1 -Offline; does nothing unless BOMBARENA_GRADLE_OFFLINE=1.
 if (System.getenv('BOMBARENA_GRADLE_OFFLINE') == '1') {
     gradle.startParameter.offline = true
+    println 'BombArena: Gradle is running offline'
 }
 '@
     $env:BOMBARENA_GRADLE_OFFLINE = "1"

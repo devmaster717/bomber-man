@@ -44,8 +44,15 @@ public sealed class AppController : MonoBehaviour
 
     private void Awake()
     {
+        ErrorLog.Install();
         Application.targetFrameRate = 60;
         _profile = ProfileStore.Load();
+        if (_profile.HighGraphics == null)
+        {
+            _profile.HighGraphics = GraphicsQuality.SuitsDevice;
+            ProfileStore.Save(_profile);
+        }
+        GraphicsQuality.Apply(_profile.HighGraphics.Value);
         _wallet = new LocalWallet(_profile, ProfileStore.Now, Save);
         _progress = new StageProgress(_profile, _wallet, Save);
         _shop = new Shop(_profile, _wallet, Save);
@@ -379,6 +386,12 @@ public sealed class AppController : MonoBehaviour
 
         // The arena view: the new 3D one or the original flat 2D one.
         _profile.View3D = Choice(new Rect(rx, 40 * u, rw, 8 * u), Text.View, Text.View2D, Text.View3D, _profile.View3D);
+        bool high = Choice(new Rect(rx, 49 * u, rw, 8 * u), Text.Graphics, Text.Low, Text.High, _profile.HighGraphics ?? true);
+        if (high != _profile.HighGraphics)
+        {
+            _profile.HighGraphics = high;
+            GraphicsQuality.Apply(high);
+        }
 
         // Bottom: avatars the player owns can be chosen (more come from the shop).
         GUI.Label(new Rect(0, 69 * u, w, 5 * u), Text.Avatar, Ui.Small);
