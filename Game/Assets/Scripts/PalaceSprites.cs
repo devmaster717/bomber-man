@@ -111,9 +111,17 @@ public static class PalaceSprites
 
     /// <summary>
     /// Builds a model far from everything on its own layer and photographs it with an orthographic camera onto a
-    /// transparent background.
+    /// transparent background: from straight above for <paramref name="top"/>, else from the three-quarter angle.
     /// </summary>
-    public static Texture2D Render(Func<Transform, Transform> build, bool top)
+    public static Texture2D Render(Func<Transform, Transform> build, bool top) => top
+        ? Render(build, PixelsPerUnit, PixelsPerUnit, 0.5f, Vector3.zero, 90f)
+        : Render(build, PixelsPerUnit, Mathf.RoundToInt(PixelsPerUnit * CharacterHeight), CharacterHeight / 2f, new Vector3(0f, 0.45f, 0f), CharacterPitch);
+
+    /// <summary>
+    /// Photographs a model: the camera looks at <paramref name="aim"/>, tilted down by <paramref name="pitch"/>
+    /// degrees, showing <paramref name="orthographicSize"/> units above and below it.
+    /// </summary>
+    public static Texture2D Render(Func<Transform, Transform> build, int width, int height, float orthographicSize, Vector3 aim, float pitch)
     {
         PalaceArt.Light();
         var stage = new GameObject("Sprite bake").transform;
@@ -133,26 +141,10 @@ public static class PalaceSprites
         var data = camera.GetUniversalAdditionalCameraData();
         data.renderPostProcessing = false;
         data.renderShadows = false;
-
-        int width = PixelsPerUnit, height;
-        if (top)
-        {
-            // Straight down over one tile.
-            camera.orthographicSize = 0.5f;
-            camera.transform.localPosition = new Vector3(0f, 10f, 0f);
-            camera.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            height = PixelsPerUnit;
-        }
-        else
-        {
-            // Tilted down at the model's middle, framing a tile's width and a little more than its height.
-            camera.orthographicSize = CharacterHeight / 2f;
-            var aim = new Vector3(0f, 0.45f, 0f);
-            var rotation = Quaternion.Euler(CharacterPitch, 0f, 0f);
-            camera.transform.localPosition = aim - rotation * Vector3.forward * 10f;
-            camera.transform.localRotation = rotation;
-            height = Mathf.RoundToInt(PixelsPerUnit * CharacterHeight);
-        }
+        camera.orthographicSize = orthographicSize;
+        var rotation = Quaternion.Euler(pitch, 0f, 0f);
+        camera.transform.localPosition = aim - rotation * Vector3.forward * 10f;
+        camera.transform.localRotation = rotation;
         camera.aspect = (float)width / height;
 
         // Render with 4x MSAA, then resolve into a plain texture before reading it back.

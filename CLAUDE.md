@@ -8,6 +8,7 @@
 
 - Core tests: `dotnet test BombArena.sln`
 - Android APK: `Tools/Build-Android.ps1`. It writes `Game/Builds/BombArena.apk` and exits non-zero on failure. Underneath it runs Unity in batch mode with `-executeMethod Builds.AndroidBatch`.
+- Release: `Tools/Build-Android.ps1 -Release` makes a signed `Game/Builds/BombArena.aab` (Google Play) and `BombArena-release.apk`, with the keystore from `BOMBARENA_KEYSTORE`, `BOMBARENA_KEYSTORE_PASS`, `BOMBARENA_KEY_ALIAS` and `BOMBARENA_KEY_PASS` (issue #42). The version is `Builds.Version` / `Builds.VersionCode`; raise the code for every upload.
 - Offline: `Tools/Build-Android.ps1 -Offline` builds without the network once one online build has filled Gradle's cache (Gradle runs `--offline`; sdkmanager is cut off). The Android SDK, NDK and JDK ship inside Unity, URP is bundled, and the target API is pinned so Unity doesn't look it up online.
 - Run on LDPlayer: `Tools/Run-LDPlayer.ps1` installs and launches the APK using LDPlayer's own adb (device `emulator-5554`). Machine-specific gotchas are in the closing comment of issue #1.
 
