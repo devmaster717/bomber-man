@@ -16,6 +16,7 @@ public sealed class RoundView : MonoBehaviour
     private RoundHost _host;
     private RoundGuest _guest;
     private IArenaView _renderer;
+    private GameSounds _sounds;
     private bool _threeD;
     private TouchControls _controls;
     private float _accumulator, _sinceUpdate;
@@ -75,6 +76,7 @@ public sealed class RoundView : MonoBehaviour
     {
         _renderer = ArenaView.Create(Game, _threeD);
         _renderer.Follow(YourIndex);
+        _sounds = new GameSounds(Game, YourIndex);
     }
 
     private void OnDestroy()
@@ -87,6 +89,7 @@ public sealed class RoundView : MonoBehaviour
     private void OnSnapshot()
     {
         _renderer.OnTick();
+        _sounds?.Observe();
         _sinceUpdate = 0f;
     }
 
@@ -109,6 +112,7 @@ public sealed class RoundView : MonoBehaviour
             {
                 _host.Tick();
                 _renderer.OnTick();
+                _sounds.Observe();
                 _accumulator -= TickSeconds;
             }
             _renderer.Draw(_accumulator / TickSeconds);
@@ -127,6 +131,11 @@ public sealed class RoundView : MonoBehaviour
         if (Over && !_endedRaised)
         {
             _endedRaised = true;
+            if (Feedback.Instance != null)
+            {
+                if (Winner == YourIndex) Feedback.Instance.StageClear();
+                else Feedback.Instance.StageFailed();
+            }
             Ended?.Invoke();
         }
     }

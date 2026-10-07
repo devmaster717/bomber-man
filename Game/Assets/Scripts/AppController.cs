@@ -76,6 +76,9 @@ public sealed class AppController : MonoBehaviour
 
     private void Update()
     {
+        // Music follows the screen: the hornpipe in stages, the allegro in battles, the minuet everywhere else.
+        bool inStage = _page is Page.Playing or Page.Paused or Page.Results || (_page == Page.Settings && _settingsReturn == Page.Paused);
+        _feedback.Music(inStage ? Feedback.Track.Stage : _page == Page.Bluetooth && _battle.InRound ? Feedback.Track.Battle : Feedback.Track.Menu);
         if (_page == Page.Bluetooth) _battle.Update();
         if (Input.GetKeyDown(KeyCode.Escape)) Back(); // Android's Back button
         else if (_page == Page.Playing && Input.GetKeyDown(KeyCode.P)) Pause();

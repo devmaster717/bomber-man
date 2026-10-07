@@ -19,6 +19,7 @@ public sealed class GameView : MonoBehaviour
     public event Action<Game> Finished;
 
     private IArenaView _renderer;
+    private GameSounds _sounds;
     private bool _threeD;
     private TouchControls _controls;
     private float _accumulator;
@@ -63,17 +64,13 @@ public sealed class GameView : MonoBehaviour
     // Sounds and vibration follow what happens in the core; the core knows nothing about them.
     private void HookFeedback()
     {
-        var fx = Feedback.Instance;
-        if (fx == null) return;
-        Game.BombPlaced += b => { if (b.Owner.Index == 0) fx.BombPlaced(); };
-        Game.BombExploded += b =>
+        _sounds = new GameSounds(Game, 0);
+        Finished += g =>
         {
-            var me = Game.Bomber.Tile;
-            fx.Explosion(nearby: Mathf.Abs(b.Tile.X - me.X) + Mathf.Abs(b.Tile.Y - me.Y) <= 3);
+            if (Feedback.Instance == null) return;
+            if (g.Outcome == Outcome.Cleared) Feedback.Instance.StageClear();
+            else Feedback.Instance.StageFailed();
         };
-        Game.BomberDied += b => { if (b.Index == 0) fx.Died(); };
-        Game.PowerUpPicked += (b, k) => { if (b.Index == 0) fx.PowerUp(); };
-        Finished += g => { if (g.Outcome == Outcome.Cleared) fx.StageClear(); };
     }
 
     private void Update()
@@ -97,6 +94,7 @@ public sealed class GameView : MonoBehaviour
             Game.Step(new BomberInput(move, _bombQueued, _detonateQueued));
             _bombQueued = _detonateQueued = false;
             _renderer.OnTick();
+            _sounds.Observe();
             _accumulator -= TickSeconds;
         }
 

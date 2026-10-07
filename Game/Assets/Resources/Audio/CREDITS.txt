@@ -1,0 +1,11 @@
+Bomb Arena audio
+
+Music (public domain): George Frideric Handel, Water Music, performed by the Chamber Orchestra of the
+United States Marine Band, a work of the US federal government, from Wikimedia Commons:
+  Music_Menu   - 13. Minuet
+  Music_Stage  - 12. Alla hornpipe
+  Music_Battle - 11. Allegro
+Trimmed, normalised and faded for looping.
+
+Sound effects (CC0 1.0, public domain): Kenney (www.kenney.nl) - Impact Sounds, Interface Sounds,
+RPG Audio, Music Jingles, Sci-fi Sounds. No attribution is required; credited here with thanks.
