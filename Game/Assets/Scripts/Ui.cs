@@ -136,6 +136,37 @@ public static class Ui
     public static Texture2D Arrow => Textures.Arrow;
     public static Texture2D AvatarRing => Textures.Ring;
 
+    /// <summary>A cut ruby: the jewels icon.</summary>
+    public static Texture2D Ruby => Textures.Ruby;
+
+    /// <summary>A glossy red heart: the lives icon.</summary>
+    public static Texture2D Heart => Textures.Heart;
+
+    /// <summary>A gold star for a star earned, or an empty star slot for one not yet earned.</summary>
+    public static Texture2D Star(bool earned) => earned ? Textures.Star : Textures.StarEmpty;
+
+    /// <summary>
+    /// Draws icon-and-text pairs side by side, centred in <paramref name="row"/> (icons a little taller than the
+    /// text, with a wider gap between pairs).
+    /// </summary>
+    public static void IconRow(Rect row, GUIStyle style, params (Texture2D icon, string text)[] items)
+    {
+        Ensure();
+        var left = new GUIStyle(style) { alignment = TextAnchor.MiddleLeft, wordWrap = false };
+        float icon = style.fontSize * 1.35f, gap = style.fontSize * 0.35f, between = style.fontSize * 1.6f;
+        float total = -between;
+        foreach (var (_, text) in items) total += icon + gap + left.CalcSize(new GUIContent(text)).x + between;
+        float x = row.x + (row.width - total) / 2f;
+        foreach (var (tex, text) in items)
+        {
+            GUI.DrawTexture(new Rect(x, row.y + (row.height - icon) / 2f, icon, icon), tex, ScaleMode.ScaleToFit);
+            x += icon + gap;
+            float w = left.CalcSize(new GUIContent(text)).x;
+            GUI.Label(new Rect(x, row.y, w + 2f, row.height), text, left);
+            x += w + between;
+        }
+    }
+
     /// <summary>The menu backdrop: deep navy lit from the centre, a faint gold lattice, and a double gold frame.</summary>
     public static void Backdrop()
     {
@@ -235,6 +266,155 @@ public static class Ui
         public static readonly Texture2D Radial = RadialGradient(128);
         public static readonly Texture2D Lattice = LatticeTile(64);
         public static readonly Texture2D HudFade = Fade(4, 64);
+        // Painted on first use, not with the fields above: static fields initialise in source order, and the shapes
+        // these read are declared further down.
+        private static Texture2D _ruby, _heart, _star, _starEmpty;
+        public static Texture2D Ruby => _ruby != null ? _ruby : _ruby = Paint(96, RubyAt);
+        public static Texture2D Heart => _heart != null ? _heart : _heart = Paint(96, HeartAt);
+        public static Texture2D Star => _star != null ? _star : _star = Paint(96, p => StarAt(p, true));
+        public static Texture2D StarEmpty => _starEmpty != null ? _starEmpty : _starEmpty = Paint(96, p => StarAt(p, false));
+
+        /// <summary>
+        /// An icon drawn from a function of the point (0..1 across, 0..1 down) that returns its colour, sampled 4 x 4
+        /// times per pixel so edges come out smooth.
+        /// </summary>
+        private static Texture2D Paint(int s, System.Func<Vector2, Color> at)
+        {
+            const int n = 4;
+            var t = New(s, s);
+            t.filterMode = FilterMode.Trilinear;
+            var px = new Color[s * s];
+            for (int y = 0; y < s; y++)
+            for (int x = 0; x < s; x++)
+            {
+                float r = 0, g = 0, b = 0, a = 0;
+                for (int j = 0; j < n; j++)
+                for (int i = 0; i < n; i++)
+                {
+                    var c = at(new Vector2((x + (i + 0.5f) / n) / s, 1f - (y + (j + 0.5f) / n) / s));
+                    r += c.r * c.a; g += c.g * c.a; b += c.b * c.a; a += c.a;
+                }
+                px[y * s + x] = a > 0 ? new Color(r / a, g / a, b / a, a / (n * n)) : Clear;
+            }
+            t.SetPixels(px);
+            t.Apply();
+            return t;
+        }
+
+        private static float Cross(Vector2 a, Vector2 b, Vector2 p) => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+
+        private static bool Inside(Vector2 p, params Vector2[] poly)
+        {
+            bool? sign = null;
+            for (int i = 0; i < poly.Length; i++)
+            {
+                float c = Cross(poly[i], poly[(i + 1) % poly.Length], p);
+                if (Mathf.Abs(c) < 1e-7f) continue;
+                if (sign == null) sign = c > 0;
+                else if (sign != c > 0) return false;
+            }
+            return true;
+        }
+
+        private static float SegmentDistance(Vector2 p, Vector2 a, Vector2 b)
+        {
+            var ab = b - a;
+            float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
+            return Vector2.Distance(p, a + ab * t);
+        }
+
+        // ---- the ruby (jewels): a cut gem seen from the side, crown on top and pavilion below ----
+
+        private static readonly Vector2 GemA = new Vector2(0.08f, 0.38f), GemB = new Vector2(0.3f, 0.15f), GemC = new Vector2(0.7f, 0.15f),
+            GemD = new Vector2(0.92f, 0.38f), GemE = new Vector2(0.5f, 0.9f), GemP = new Vector2(0.35f, 0.38f), GemQ = new Vector2(0.65f, 0.38f);
+
+        private static readonly (Vector2[] facet, Color colour)[] GemFacets =
+        {
+            (new[] { GemB, GemC, GemQ, GemP }, new Color(1f, 0.5f, 0.56f)),    // table, catching the light
+            (new[] { GemA, GemB, GemP }, new Color(0.96f, 0.26f, 0.36f)),      // crown, left
+            (new[] { GemC, GemD, GemQ }, new Color(0.84f, 0.1f, 0.2f)),        // crown, right
+            (new[] { GemA, GemP, GemE }, new Color(0.78f, 0.06f, 0.17f)),      // pavilion, left
+            (new[] { GemP, GemQ, GemE }, new Color(0.9f, 0.14f, 0.24f)),       // pavilion, centre
+            (new[] { GemQ, GemD, GemE }, new Color(0.5f, 0.02f, 0.1f)),        // pavilion, right, in shadow
+        };
+
+        private static readonly Vector2[] GemOutline = { GemA, GemB, GemC, GemD, GemE };
+
+        private static Color RubyAt(Vector2 p)
+        {
+            if (!Inside(p, GemOutline)) return Clear;
+            var c = GemFacets[0].colour;
+            foreach (var (facet, colour) in GemFacets)
+                if (Inside(p, facet)) { c = colour; break; }
+            // Bright hairlines along the facet edges, a dark rim along the outline.
+            float inner = float.MaxValue, outer = float.MaxValue;
+            foreach (var (facet, _) in GemFacets)
+                for (int i = 0; i < facet.Length; i++) inner = Mathf.Min(inner, SegmentDistance(p, facet[i], facet[(i + 1) % facet.Length]));
+            for (int i = 0; i < GemOutline.Length; i++) outer = Mathf.Min(outer, SegmentDistance(p, GemOutline[i], GemOutline[(i + 1) % GemOutline.Length]));
+            c = Color.Lerp(c, new Color(1f, 0.75f, 0.78f), 0.55f * Mathf.Clamp01(1f - inner / 0.012f));
+            c = Color.Lerp(c, new Color(0.3f, 0f, 0.05f), Mathf.Clamp01(1f - (outer - 0.012f) / 0.012f));
+            // A four-pointed sparkle on the table.
+            var d = p - new Vector2(0.38f, 0.25f);
+            float sparkle = Mathf.Clamp01(1f - (Mathf.Abs(d.x) * Mathf.Abs(d.y) * 900f + d.magnitude * 9f));
+            return Color.Lerp(c, Color.white, sparkle);
+        }
+
+        // ---- the heart (lives): glossy red, lit from the top left ----
+
+        // Signed distance to a heart whose tip is at the origin and which rises to y = 1.1 (two round lobes over a
+        // square turned 45 degrees); negative inside.
+        private static float HeartDistance(float x, float y)
+        {
+            x = Mathf.Abs(x);
+            if (y + x > 1f) return new Vector2(x - 0.25f, y - 0.75f).magnitude - Mathf.Sqrt(2f) / 4f;
+            float m = 0.5f * Mathf.Max(x + y, 0f);
+            float d = Mathf.Min(new Vector2(x, y - 1f).sqrMagnitude, new Vector2(x - m, y - m).sqrMagnitude);
+            return Mathf.Sqrt(d) * Mathf.Sign(x - y);
+        }
+
+        private static Color HeartAt(Vector2 p)
+        {
+            float x = (p.x - 0.5f) * 1.3f, y = (0.94f - p.y) * 1.3f;
+            float edge = -HeartDistance(x, y);
+            if (edge < 0f) return Clear;
+            // Lit from the top left, a deeper red towards the rim, and a dark outline.
+            var c = Color.Lerp(new Color(1f, 0.38f, 0.44f), new Color(0.66f, 0.03f, 0.11f), Mathf.Clamp01((x - (y - 0.55f)) * 0.9f + 0.5f));
+            c = Color.Lerp(c, new Color(0.5f, 0.01f, 0.08f), Mathf.Clamp01(1f - edge / 0.09f) * 0.45f);
+            c = Color.Lerp(c, new Color(0.32f, 0f, 0.05f), Mathf.Clamp01(1f - (edge - 0.012f) / 0.012f));
+            // A soft white gloss on the left lobe.
+            float gloss = new Vector2((x + 0.27f) / 0.13f, (y - 0.82f) / 0.075f).magnitude;
+            return Color.Lerp(c, Color.white, 0.8f * Mathf.Clamp01(1f - gloss));
+        }
+
+        // ---- the star (stage stars): a bevelled gold star, or an empty slot for one not yet earned ----
+
+        private static Color StarAt(Vector2 p, bool earned)
+        {
+            var centre = new Vector2(0.5f, 0.54f);
+            const float outerR = 0.47f, innerR = 0.2f;
+            var points = new Vector2[10];
+            for (int i = 0; i < 10; i++)
+            {
+                float angle = -Mathf.PI / 2f + i * Mathf.PI / 5f, r = i % 2 == 0 ? outerR : innerR;
+                points[i] = centre + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * r;
+            }
+            int facet = -1;
+            for (int i = 0; i < 10; i++)
+                if (Inside(p, centre, points[i], points[(i + 1) % 10])) { facet = i; break; }
+            if (facet < 0) return Clear;
+            float outline = float.MaxValue;
+            for (int i = 0; i < 10; i++) outline = Mathf.Min(outline, SegmentDistance(p, points[i], points[(i + 1) % 10]));
+            if (!earned)
+            {
+                var slot = new Color(0.06f, 0.09f, 0.18f, 0.9f);
+                return Color.Lerp(slot, new Color(Gold.r, Gold.g, Gold.b, 0.75f), Mathf.Clamp01(1f - (outline - 0.02f) / 0.012f));
+            }
+            // Each arm is two facets: the one facing the light is pale gold, the other deeper; the upper arms brighter.
+            float light = Vector2.Dot(((points[facet] + points[(facet + 1) % 10]) / 2f - centre).normalized, new Vector2(-0.6f, -0.8f));
+            var c = Color.Lerp(new Color(0.78f, 0.5f, 0.1f), new Color(1f, 0.92f, 0.58f), Mathf.Clamp01(light * 0.6f + 0.5f));
+            c = Color.Lerp(c, new Color(0.42f, 0.26f, 0.04f), Mathf.Clamp01(1f - (outline - 0.012f) / 0.012f));
+            return c;
+        }
 
         private static Texture2D New(int w, int h, TextureWrapMode wrap = TextureWrapMode.Clamp) =>
             new Texture2D(w, h, TextureFormat.RGBA32, false) { wrapMode = wrap, filterMode = FilterMode.Bilinear, hideFlags = HideFlags.DontSave };
