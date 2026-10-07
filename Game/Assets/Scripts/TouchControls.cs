@@ -20,7 +20,7 @@ public sealed class TouchControls : MonoBehaviour
     public bool ShowDetonate { get; set; }
 
     public bool UseJoystick { get; set; }
-    public bool LeftHanded { get; set; }
+    public bool PadOnRight { get; set; }
 
     /// <summary>Button size as a fraction of the default (0.75–1.5).</summary>
     public float Scale { get; set; } = 1f;
@@ -33,7 +33,7 @@ public sealed class TouchControls : MonoBehaviour
     private Vector2 _stickOrigin, _stickNow;
 
     // Movement controls live on this side; buttons on the other.
-    private bool MoveOnLeft => !LeftHanded;
+    private bool MoveOnLeft => !PadOnRight;
 
     private float SideX(float xFromEdge, float width, bool left) => left ? xFromEdge : Screen.width - xFromEdge - width;
 

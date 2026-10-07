@@ -127,7 +127,7 @@ public class WalletTests
     [Test]
     public void Profile_round_trips_through_its_save_format()
     {
-        var p = new PlayerProfile { Jewels = 1234, Lives = 13, Nickname = "Sasha", Avatar = 3, LeftHanded = true, View3D = false };
+        var p = new PlayerProfile { Jewels = 1234, Lives = 13, Nickname = "Sasha", Avatar = 3, PadOnRight = true, View3D = false };
         p.BestStars[1] = 3; p.BestStars[2] = 1;
         p.ThreeStarBonusPaid.Add(1);
         p.OwnedAvatars.Add(0); p.OwnedAvatars.Add(3);
@@ -139,6 +139,15 @@ public class WalletTests
         Assert.That(q.CarriedPowerUps.BombUps, Is.EqualTo(2));
         Assert.That(q.Inventory.RemoteControl);
         Assert.That(q.View3D, Is.False);
+    }
+
+    [Test]
+    public void Pad_side_round_trips_and_old_left_handed_saves_keep_their_layout()
+    {
+        Assert.That(new PlayerProfile().PadOnRight, Is.False, "the pad starts on the left");
+        Assert.That(PlayerProfile.Parse(new PlayerProfile { PadOnRight = true }.Serialize()).PadOnRight, Is.True);
+        Assert.That(PlayerProfile.Parse("leftHanded = True\n").PadOnRight, Is.True, "Left-handed meant pad on the right");
+        Assert.That(PlayerProfile.Parse("leftHanded = False\n").PadOnRight, Is.False);
     }
 
     [Test]
