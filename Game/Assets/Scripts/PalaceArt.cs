@@ -573,6 +573,8 @@ public static class PalaceArt
         main.maxParticles = 60;
         var emission = ps.emission;
         emission.rateOverTime = GraphicsQuality.High ? 70f : 35f;
+        // A burst on lighting fills the tile at once: the flames show exactly when the tile becomes deadly.
+        emission.SetBursts(new[] { new ParticleSystem.Burst(0f, (short)(GraphicsQuality.High ? 16 : 9)) });
         var shape = ps.shape;
         shape.shapeType = ParticleSystemShapeType.Box;
         shape.scale = new Vector3(0.75f, 0.75f, 0.05f);
@@ -591,6 +593,22 @@ public static class PalaceArt
         r.renderMode = ParticleSystemRenderMode.Billboard;
         r.shadowCastingMode = ShadowCastingMode.Off;
         return ps;
+    }
+
+    private static ParticleSystem.Particle[] _flameParticles = new ParticleSystem.Particle[64];
+
+    /// <summary>
+    /// Puts out a tile's flames when it stops being deadly: no new flames, and the ones still rising burn out within
+    /// a tenth of a second, so the fire on screen never outlasts the danger.
+    /// </summary>
+    public static void Extinguish(ParticleSystem flames)
+    {
+        flames.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+        if (_flameParticles.Length < flames.main.maxParticles) _flameParticles = new ParticleSystem.Particle[flames.main.maxParticles];
+        int n = flames.GetParticles(_flameParticles);
+        for (int i = 0; i < n; i++)
+            if (_flameParticles[i].remainingLifetime > 0.1f) _flameParticles[i].remainingLifetime = 0.1f;
+        flames.SetParticles(_flameParticles, n);
     }
 
     /// <summary>A burst of gold sparkles and dust, for a crate breaking or a power-up being picked up.</summary>

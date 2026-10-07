@@ -158,8 +158,10 @@ public class BombTests
         for (int i = 0; i < 10; i++) g.Step(new BomberInput(Direction.Right), BomberInput.None); // to (3,1)
         while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing) g.Step(BomberInput.None, BomberInput.None);
         Assert.That(g.Bomber.Alive, "out of range at (3,1)");
-        g.Step(new BomberInput(Direction.Left), BomberInput.None); // hitbox now reaches into (2,1), still burning
-        g.Step(new BomberInput(Direction.Left), BomberInput.None);
+        g.Step(new BomberInput(Direction.Left), BomberInput.None); // its edge now overlaps (2,1), still burning
+        Assert.That(g.Bomber.Alive, "only the edge of its body is in the flames");
+        for (int i = 0; i < 3; i++) g.Step(new BomberInput(Direction.Left), BomberInput.None); // its middle reaches (2,1)
+        Assert.That(g.IsBurning(new TilePos(2, 1)), "the fire is still burning");
         Assert.That(g.Bomber.Alive, Is.False);
     }
 

@@ -132,6 +132,61 @@ public static class Previews
         EditorApplication.Exit(0);
     }
 
+    /// <summary>
+    /// A blast frame by frame in the 2D view, as Builds/preview-fire-N.png: the ticks after it goes off, with the
+    /// particles run for the same time, to check the flames show exactly while the fire burns.
+    /// </summary>
+    public static void FireBatch()
+    {
+        PalaceSetup.Run();
+        EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+        // The bomber bombs (1,1) and steps down out of range.
+        var g = new Game(Arena.FromRows(
+            "#########",
+            "#.......#",
+            "#.#.#.#.#",
+            "#.......#",
+            "#########"), new TilePos(1, 1));
+        g.Step(Direction.None, placeBomb: true);
+        var view = ArenaView.Create(g, false, ArenaTheme.Palace);
+        var camera = Camera.main;
+        camera.aspect = (float)Width / Height;
+        for (int i = 0; i < 10; i++) { g.Step(Direction.Down); view.OnTick(); }
+        while (g.Bombs.Count > 0 && g.Outcome == Outcome.Playing) { g.Step(Direction.None); view.OnTick(); }
+        int[] after = { 1, 3, 6, Game.FireTicks - 1, Game.FireTicks + 1, Game.FireTicks + 3 };
+        int at = 1;
+        for (int k = 0; k < after.Length; k++)
+        {
+            for (; at <= after[k]; at++)
+            {
+                if (at > 1) g.Step(Direction.None);
+                view.OnTick();
+                view.Draw(1f);
+                foreach (var ps in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+                    ps.Simulate(1f / Units.TicksPerSecond, true, false, true);
+            }
+            view.Follow(0);
+            Debug.Log($"FIRE +{after[k]} ticks: burning={g.IsBurning(new TilePos(1, 1))} bomber alive={g.Bomber.Alive}");
+            var shot = Shoot(camera);
+            File.WriteAllBytes($"Builds/preview-fire-{k}.png", shot.EncodeToPNG());
+            Object.DestroyImmediate(shot);
+        }
+        EditorApplication.Exit(0);
+    }
+
+    private static Texture2D Shoot(Camera camera)
+    {
+        var rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
+        UnityEngine.Rendering.RenderPipeline.SubmitRenderRequest(camera, new UnityEngine.Rendering.RenderPipeline.StandardRequest { destination = rt });
+        RenderTexture.active = rt;
+        var image = new Texture2D(Width, Height, TextureFormat.RGB24, false);
+        image.ReadPixels(new Rect(0, 0, Width, Height), 0, 0);
+        image.Apply();
+        RenderTexture.active = null;
+        rt.Release();
+        return image;
+    }
+
     public static void RenderBatch()
     {
         Render();
