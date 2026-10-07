@@ -110,7 +110,12 @@ public sealed class AppController : MonoBehaviour
     // Leaving the app (a call, the home button) pauses the attempt and saves everything.
     private void OnApplicationPause(bool paused)
     {
-        if (!paused) return;
+        // Back from the background: credit the lives that came back meanwhile (they count by the clock).
+        if (!paused)
+        {
+            _wallet.Refresh();
+            return;
+        }
         if (_page == Page.Playing) Pause();
         Save();
     }
