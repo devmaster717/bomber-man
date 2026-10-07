@@ -98,7 +98,7 @@ public sealed class ClearCelebration
         if (fade <= 0f) return;
         var old = GUI.color;
         GUI.color = new Color(old.r, old.g, old.b, old.a * fade);
-        GUI.Label(breakdown, Text.JewelBreakdown(r.ClearJewels, r.StarBonus, r.FirstThreeStars), Ui.Small);
+        GUI.Label(breakdown, Text.JewelBreakdown(r.ClearJewels, r.StarBonus, r.FirstThreeStars), Ui.SmallNumbers);
         GUI.color = old;
     }
 

@@ -30,7 +30,6 @@ public static class Text
 
     // In play
     public static string Hud(int stage, int enemies, string time) => $"Stage {stage}    Enemies: {enemies}    Time {time}";
-    public static string ThreeStarsUnder(string clock) => $"    3 stars under {clock}";
     public const string HeldFireUp = "Fire Up";
     public static string HeldBombs(int n) => $"Bombs {n}";
     public const string HeldRemote = "Remote";

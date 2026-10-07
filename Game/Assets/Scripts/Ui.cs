@@ -16,7 +16,7 @@ public static class Ui
     private static readonly Color NavyTop = new Color(0.11f, 0.17f, 0.30f), NavyBottom = new Color(0.04f, 0.07f, 0.15f);
 
     private static GUISkin _skin;
-    private static GUIStyle _button, _label, _title, _panel, _small, _smallButton, _field, _hud, _control, _numbers, _numberButton;
+    private static GUIStyle _button, _label, _title, _panel, _small, _smallButton, _field, _hud, _control, _numbers, _numberButton, _smallNumbers;
     private static int _sizedFor;
     private static Font _body, _display, _figures;
 
@@ -101,6 +101,7 @@ public static class Ui
         _small = new GUIStyle(_label) { fontSize = (int)(3.4f * u) };
         // Marcellus draws zero as a circle like the letter O; counts use Cinzel's figures instead.
         _numbers = new GUIStyle(_label) { font = _figures, fontSize = (int)(4.2f * u), wordWrap = false };
+        _smallNumbers = new GUIStyle(_numbers) { fontSize = (int)(3.2f * u) };
         _title = new GUIStyle(_label) { font = _display, fontSize = (int)(8.5f * u), wordWrap = false };
         _title.normal.textColor = Gold;
         _panel = new GUIStyle { border = new RectOffset(18, 18, 18, 18) };
@@ -108,7 +109,8 @@ public static class Ui
         _field = new GUIStyle(_label) { border = new RectOffset(10, 10, 10, 10), padding = new RectOffset(12, 12, 4, 4), clipping = TextClipping.Clip };
         _field.normal.background = _field.hover.background = _field.focused.background = Textures.Field;
         _field.normal.textColor = _field.hover.textColor = _field.focused.textColor = Cream;
-        _hud = new GUIStyle(_label) { fontSize = (int)(4f * u), alignment = TextAnchor.UpperLeft, wordWrap = false };
+        // The in-play line (stage, enemies, time) is mostly figures: Cinzel, like the other counts.
+        _hud = new GUIStyle(_label) { font = _figures, fontSize = (int)(3.8f * u), alignment = TextAnchor.UpperLeft, wordWrap = false };
         _control = new GUIStyle(_label) { fontSize = (int)(3.6f * u), border = new RectOffset(32, 32, 32, 32) };
         _control.normal.background = Textures.Control;
 
@@ -162,6 +164,9 @@ public static class Ui
     /// <summary>A button labelled with a number (the stage buttons), in Cinzel's figures.</summary>
     public static GUIStyle NumberButton { get { Ensure(); return _numberButton; } }
 
+    /// <summary>A small caption with figures in it (e.g. "Stages 1-20"), in Cinzel.</summary>
+    public static GUIStyle SmallNumbers { get { Ensure(); return _smallNumbers; } }
+
     /// <summary>The round, gold-ringed style of the on-screen controls.</summary>
     public static GUIStyle Control { get { Ensure(); return _control; } }
 
@@ -179,6 +184,45 @@ public static class Ui
 
     /// <summary>A gold padlock: a stage not unlocked yet.</summary>
     public static Texture2D Lock => Textures.Lock;
+
+    private static GUIStyle _meterTrack, _meterFill;
+
+    /// <summary>
+    /// A horizontal meter: a dark rounded track with a gold rim, filled from the left to <paramref name="fraction"/>
+    /// in <paramref name="tint"/>, with thin notches at the given fractions.
+    /// </summary>
+    public static void Meter(Rect r, float fraction, Color tint, params float[] notches)
+    {
+        Ensure();
+        if (_meterTrack == null)
+        {
+            // Borders in texture pixels: the rounded corners stay that size however long the bar.
+            _meterTrack = new GUIStyle { border = new RectOffset(10, 10, 10, 10) };
+            _meterTrack.normal.background = Textures.Field;
+            _meterFill = new GUIStyle { border = new RectOffset(11, 11, 11, 11) };
+            _meterFill.normal.background = Textures.MeterFill;
+        }
+        if (Event.current.type != EventType.Repaint) return;
+        _meterTrack.Draw(r, false, false, false, false);
+        fraction = Mathf.Clamp01(fraction);
+        if (fraction > 0f)
+        {
+            // The fill keeps its rounded ends: it's drawn full length and cut off at the fraction.
+            float inset = Mathf.Max(1f, r.height * 0.12f);
+            var inner = new Rect(r.x + inset, r.y + inset, r.width - 2 * inset, r.height - 2 * inset);
+            GUI.BeginGroup(new Rect(inner.x, inner.y, inner.width * fraction, inner.height));
+            var old = GUI.color;
+            GUI.color = tint;
+            _meterFill.Draw(new Rect(0, 0, inner.width, inner.height), false, false, false, false);
+            GUI.color = old;
+            GUI.EndGroup();
+        }
+        var oldColour = GUI.color;
+        GUI.color = new Color(0.03f, 0.04f, 0.1f, 0.85f);
+        foreach (float n in notches)
+            GUI.DrawTexture(new Rect(r.x + r.width * n - 1f, r.y + r.height * 0.15f, 2f, r.height * 0.7f), Texture2D.whiteTexture);
+        GUI.color = oldColour;
+    }
 
     /// <summary>
     /// Draws icon-and-text pairs side by side, centred in <paramref name="row"/> (icons a little taller than the
@@ -309,6 +353,8 @@ public static class Ui
         public static readonly Texture2D Radial = RadialGradient(128);
         public static readonly Texture2D Lattice = LatticeTile(64);
         public static readonly Texture2D HudFade = Fade(4, 64);
+        // White to soft grey with a shine near the top, tinted when drawn (Meter).
+        public static readonly Texture2D MeterFill = RoundedFrame(32, 10, new Color(1f, 1f, 1f), new Color(0.72f, 0.72f, 0.72f), new Color(1f, 1f, 1f, 0.9f), 1f, 1f);
         // Painted on first use, not with the fields above: static fields initialise in source order, and the shapes
         // these read are declared further down.
         private static Texture2D _jewel, _heart, _star, _starEmpty, _lock;
