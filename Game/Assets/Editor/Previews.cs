@@ -67,6 +67,45 @@ public static class Previews
         EditorApplication.Exit(0);
     }
 
+    /// <summary>Every character model in Resources/Palace/Characters as a bomber, in a row, for choosing the slots' characters.</summary>
+    public static void CharactersBatch()
+    {
+        PalaceSetup.Run();
+        EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+        var root = new GameObject("Line-up").transform;
+        var models = PalaceArt.BomberModels;
+        var names = new System.Collections.Generic.List<string>();
+        foreach (var path in Directory.GetFiles("Assets/Resources/Palace/Characters", "*.fbx"))
+            names.Add(Path.GetFileNameWithoutExtension(path));
+        for (int i = 0; i < names.Count; i++)
+        {
+            PalaceArt.BomberModels = new[] { names[i] };
+            var rig = PalaceArt.Bomber(root, 0);
+            rig.Root.SetPositionAndRotation(new Vector3(i % 6 * 1.3f, 0f, -(i / 6) * 1.6f), Quaternion.Euler(0f, 180f, 0f));
+            rig.Root.localScale = Vector3.one * 1.25f;
+            Debug.Log($"CHARACTER {i}: {names[i]}");
+        }
+        PalaceArt.BomberModels = models;
+        var floor = PalaceArt.Part(root, PalaceArt.Primitive(PrimitiveType.Quad), PalaceArt.Mat("Floor"), new Vector3(3.2f, 0f, -0.8f), new Vector3(10f, 5f, 1f), false);
+        floor.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        PalaceArt.Light();
+        var camera = Camera.main;
+        camera.transform.SetPositionAndRotation(new Vector3(3.25f, 4.6f, -5.6f), Quaternion.Euler(38f, 0f, 0f));
+        camera.fieldOfView = 40f;
+        camera.clearFlags = CameraClearFlags.SolidColor;
+        camera.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
+        camera.aspect = (float)Width / Height;
+        var rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
+        UnityEngine.Rendering.RenderPipeline.SubmitRenderRequest(camera, new UnityEngine.Rendering.RenderPipeline.StandardRequest { destination = rt });
+        var resolved = new RenderTexture(Width, Height, 0, RenderTextureFormat.ARGB32);
+        Graphics.Blit(rt, resolved);
+        RenderTexture.active = resolved;
+        var image = new Texture2D(Width, Height, TextureFormat.RGB24, false);
+        image.ReadPixels(new Rect(0, 0, Width, Height), 0, 0);
+        File.WriteAllBytes("Builds/preview-characters.png", image.EncodeToPNG());
+        EditorApplication.Exit(0);
+    }
+
     public static void RenderBatch()
     {
         Render();

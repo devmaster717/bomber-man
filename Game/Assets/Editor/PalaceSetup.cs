@@ -201,6 +201,16 @@ public static class PalaceSetup
         SetUp(Lit("Silver"), null, "Gold", "Gold", new Color(0.86f, 0.89f, 0.95f));
         SetUp(Lit("Lacquer"), "Wood", "Wood", "Marble", new Color(0.72f, 0.1f, 0.08f));
 
+        // The bombers' cartoon characters (Kenney's Mini Characters) all share one colour-swatch texture.
+        var character = Lit("Character");
+        character.SetTexture("_BaseMap", Load(Root + "/Characters/colormap.png"));
+        character.SetTexture("_BumpMap", null);
+        character.SetTexture("_MetallicGlossMap", null);
+        character.SetFloat("_Metallic", 0f);
+        character.SetFloat("_Smoothness", 0.15f);
+        character.SetColor("_BaseColor", Color.white);
+        Finish(character);
+
         // Plain glossy and matte surfaces, tinted per use at runtime (same shader variant, so nothing is stripped).
         var glossy = Lit("Glossy");
         glossy.SetFloat("_Smoothness", 0.85f);
@@ -292,12 +302,37 @@ public static class PalaceSetup
     }
 }
 
-/// <summary>Import settings for the palace textures: normal maps as normal maps, packed maps as linear data.</summary>
+/// <summary>
+/// Import settings for the palace textures (normal maps as normal maps, packed maps as linear data) and the bombers'
+/// character models.
+/// </summary>
 public sealed class PalaceTextureImport : AssetPostprocessor
 {
+    private void OnPreprocessModel()
+    {
+        if (!assetPath.Contains("/Resources/Palace/Characters/")) return;
+        // Legacy animation: the game plays the clips by name (idle, walk, sprint) with no animator assets. The
+        // material comes from PalaceSetup (Materials/Character), so none is imported.
+        var importer = (ModelImporter)assetImporter;
+        importer.animationType = ModelImporterAnimationType.Legacy;
+        importer.importAnimation = true;
+        importer.materialImportMode = ModelImporterMaterialImportMode.None;
+        importer.importCameras = false;
+        importer.importLights = false;
+    }
+
     private void OnPreprocessTexture()
     {
         var importer = (TextureImporter)assetImporter;
+        if (assetPath.Contains("/Resources/Palace/Characters/"))
+        {
+            // A palette of flat colour swatches: sampled exactly, so neighbouring swatches don't bleed in.
+            importer.mipmapEnabled = false;
+            importer.filterMode = FilterMode.Point;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            return;
+        }
         if (assetPath.Contains("/Resources/Palace/Sprites/"))
         {
             // Sprites rendered by PalaceSetup: one tile per PalaceSprites.PixelsPerUnit, pivot at the tile centre or

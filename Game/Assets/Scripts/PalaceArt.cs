@@ -15,23 +15,7 @@ public static class PalaceArt
 {
     // ---- palette ----
 
-    public static readonly Color Navy = new Color(0.05f, 0.07f, 0.14f);
     public static readonly Color GoldText = new Color(0.94f, 0.80f, 0.45f);
-
-    /// <summary>Each player slot's enamel colour (body and jewel), matching the 2D sprites' slot colours.</summary>
-    public static Color SlotColour(int slot) => slot switch
-    {
-        1 => new Color(0.78f, 0.12f, 0.14f), // ruby
-        2 => new Color(0.12f, 0.30f, 0.80f), // sapphire
-        _ => new Color(0.93f, 0.93f, 0.95f), // pearl
-    };
-
-    private static Color SlotTrim(int slot) => slot switch
-    {
-        1 => new Color(0.25f, 0.05f, 0.06f),
-        2 => new Color(0.05f, 0.09f, 0.28f),
-        _ => new Color(0.16f, 0.22f, 0.55f),
-    };
 
     // ---- materials ----
 
@@ -386,68 +370,94 @@ public static class PalaceArt
 
     // ---- characters ----
 
-    /// <summary>A royal bomber's moving parts, posed each frame by <see cref="Pose"/>.</summary>
+    /// <summary>
+    /// The character model each player slot plays as: animated cartoon people from Kenney's Mini Characters (CC0),
+    /// under Resources/Palace/Characters.
+    /// </summary>
+    public static string[] BomberModels = { "character-female-e", "character-male-b", "character-male-c" };
+
+    /// <summary>How tall a bomber model stands (before the views' own scaling), in tiles.</summary>
+    private const float BomberHeight = 0.86f;
+
+    // The walk animation's natural pace matches about this ground speed, in tiles per second.
+    private const float WalkPace = 2.6f;
+
+    /// <summary>A bomber's character and its animation, played each frame by <see cref="Pose"/>.</summary>
     public sealed class BomberRig
     {
-        public Transform Root, Body, LeftFoot, RightFoot, LeftHand, RightHand;
-        private float _phase;
+        public Transform Root;
+        public Animation Animation;
+        private string _playing;
 
-        /// <summary>Walk cycle: bob, swing feet and hands while moving; breathe when still.</summary>
+        /// <summary>Walks (faster the faster it goes) while moving, stands idle otherwise.</summary>
         public void Pose(float distanceMoved, float time)
         {
-            _phase += distanceMoved * 9f;
-            bool moving = distanceMoved > 1e-4f;
-            float swing = moving ? Mathf.Sin(_phase) : 0f;
-            float bob = moving ? Mathf.Abs(Mathf.Sin(_phase)) * 0.05f : Mathf.Sin(time * 2.2f) * 0.008f;
-            Body.localPosition = new Vector3(0, bob, 0);
-            LeftFoot.localPosition = new Vector3(-0.11f, 0.05f, 0.02f + swing * 0.09f);
-            RightFoot.localPosition = new Vector3(0.11f, 0.05f, 0.02f - swing * 0.09f);
-            LeftHand.localPosition = new Vector3(-0.25f, 0.33f, 0.04f - swing * 0.08f);
-            RightHand.localPosition = new Vector3(0.25f, 0.33f, 0.04f + swing * 0.08f);
+            if (Animation == null) return;
+            float speed = Time.deltaTime > 0f ? distanceMoved / Time.deltaTime / Root.lossyScale.x : 0f;
+            bool moving = distanceMoved > 1e-4f && speed < 40f; // a jump (respawn, view switch) isn't walking
+            string clip = !moving ? "idle" : speed > 6f ? "sprint" : "walk";
+            if (moving) Animation[clip].speed = Mathf.Clamp(speed / (clip == "sprint" ? WalkPace * 2f : WalkPace), 0.7f, 2.2f);
+            if (clip == _playing) return;
+            Animation.CrossFade(clip, 0.12f);
+            _playing = clip;
         }
     }
 
     /// <summary>
-    /// A royal bomber: an enamel body in the slot's colour, a pearl-white helmet with a dark visor and glowing eyes,
-    /// gold belt and crown with the slot's jewel.
+    /// A bomber: the slot's cartoon character (see <see cref="BomberModels"/>), standing in its idle pose on a soft
+    /// ring of the slot's colour (pearl, ruby or sapphire) so players can tell each other apart. Faces +z.
     /// </summary>
     public static BomberRig Bomber(Transform parent, int slot)
     {
         var rig = new BomberRig { Root = Group("Bomber " + slot, parent) };
-        var gold = Mat("Gold");
-        var pearl = Glossy(new Color(0.96f, 0.95f, 0.92f));
-        var trim = Glossy(SlotTrim(slot));
-        rig.LeftFoot = Box(rig.Root, new Vector3(0.16f, 0.1f, 0.24f), 0.04f, trim, Vector3.zero).transform;
-        rig.RightFoot = Box(rig.Root, new Vector3(0.16f, 0.1f, 0.24f), 0.04f, trim, Vector3.zero).transform;
-
-        rig.Body = Group("Body", rig.Root);
-        var b = rig.Body;
-        Ball(b, Glossy(SlotColour(slot)), new Vector3(0, 0.34f, 0), new Vector3(0.44f, 0.42f, 0.4f));
-        Disc(b, gold, new Vector3(0, 0.3f, 0), new Vector3(0.45f, 0.03f, 0.41f));
-        rig.LeftHand = Ball(b, pearl, Vector3.zero, Vector3.one * 0.13f).transform;
-        rig.RightHand = Ball(b, pearl, Vector3.zero, Vector3.one * 0.13f).transform;
-        Ball(b, pearl, new Vector3(0, 0.74f, 0), Vector3.one * 0.46f);
-        Ball(b, Glossy(new Color(0.03f, 0.04f, 0.08f)), new Vector3(0, 0.72f, 0.12f), new Vector3(0.34f, 0.25f, 0.24f));
-        var eye = Glow(new Color(2.2f, 2.2f, 2.4f));
-        Ball(b, eye, new Vector3(-0.065f, 0.735f, 0.235f), new Vector3(0.05f, 0.09f, 0.03f), false);
-        Ball(b, eye, new Vector3(0.065f, 0.735f, 0.235f), new Vector3(0.05f, 0.09f, 0.03f), false);
-        // Crown: a gold band with five points and the slot's jewel in front.
-        Disc(b, gold, new Vector3(0, 0.98f, 0), new Vector3(0.27f, 0.035f, 0.27f));
-        for (int i = 0; i < 5; i++)
+        var prefab = Resources.Load<GameObject>("Palace/Characters/" + BomberModels[Mathf.Clamp(slot, 0, BomberModels.Length - 1)]);
+        if (prefab == null)
         {
-            float a = i * Mathf.PI * 2f / 5f;
-            Ball(b, gold, new Vector3(Mathf.Sin(a) * 0.12f, 1.04f, Mathf.Cos(a) * 0.12f), new Vector3(0.05f, 0.09f, 0.05f));
+            Debug.LogError("Bomber model missing: " + BomberModels[slot]);
+            return rig;
         }
-        Ball(b, Glow(SlotJewel(slot)), new Vector3(0, 0.99f, 0.13f), Vector3.one * 0.055f, false);
-        rig.Pose(0f, 0f);
+        var model = Object.Instantiate(prefab, rig.Root, false);
+        model.name = "Character";
+        var material = Mat("Character");
+        foreach (var r in model.GetComponentsInChildren<Renderer>())
+        {
+            var shared = new Material[r.sharedMaterials.Length];
+            for (int i = 0; i < shared.Length; i++) shared[i] = material;
+            r.sharedMaterials = shared;
+            r.shadowCastingMode = ShadowCastingMode.On;
+            if (r is SkinnedMeshRenderer skinned) skinned.updateWhenOffscreen = true; // its bounds follow the animation
+        }
+
+        rig.Animation = model.GetComponent<Animation>();
+        if (rig.Animation != null)
+        {
+            foreach (AnimationState state in rig.Animation) state.wrapMode = WrapMode.Loop;
+            // Stand in the idle pose straight away (also for the sprites rendered in the editor, where nothing plays).
+            var idle = rig.Animation["idle"];
+            if (idle != null) idle.clip.SampleAnimation(model, 0f);
+            rig.Animation.Play("idle");
+        }
+
+        // Scale the character to the bomber's height, standing on the ground.
+        var bounds = new Bounds(model.transform.position, Vector3.zero);
+        foreach (var r in model.GetComponentsInChildren<Renderer>()) bounds.Encapsulate(r.bounds);
+        if (bounds.size.y > 1e-3f)
+        {
+            float scale = BomberHeight / bounds.size.y;
+            model.transform.localScale *= scale;
+            model.transform.localPosition = new Vector3(0f, (model.transform.position.y - bounds.min.y) * scale, 0f);
+        }
+
+        var ring = Part(rig.Root, Primitive(PrimitiveType.Quad), Tint("Ring", SlotRing(slot)), new Vector3(0, 0.015f, 0), Vector3.one * 0.85f, false);
+        ring.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
         return rig;
     }
 
-    private static Color SlotJewel(int slot) => slot switch
+    private static Color SlotRing(int slot) => slot switch
     {
-        1 => new Color(2.4f, 0.2f, 0.3f),
-        2 => new Color(0.3f, 0.7f, 2.6f),
-        _ => new Color(0.4f, 2.0f, 0.9f),
+        1 => new Color(1.8f, 0.25f, 0.3f),
+        2 => new Color(0.35f, 0.75f, 2.2f),
+        _ => new Color(1.5f, 1.45f, 1.3f),
     };
 
     /// <summary>An enemy's parts, posed each frame by <see cref="Pose"/>; the Phantom fades.</summary>
