@@ -127,15 +127,64 @@ public sealed class GameView : MonoBehaviour
         Ui.Begin();
         Ui.HudBar(0.17f);
         long elapsed = Game.Tick / Units.TicksPerSecond;
-        long target = Game.TargetTicks / Units.TicksPerSecond;
         string hud = Text.Hud(StageNumber, Game.EnemiesRemaining, Ui.Clock(elapsed));
-        if (target > 0) hud += Text.ThreeStarsUnder(Ui.Clock(target));
         var b = Game.Bomber;
         string held = (b.HasFireUp ? "  " + Text.HeldFireUp : "") + (b.BombUps > 0 ? "  " + Text.HeldBombs(b.MaxBombs) : "") +
                       (b.HasRemoteControl ? "  " + Text.HeldRemote : "") +
                       (b.SpeedUpTicksLeft > 0 ? "  " + Text.HeldSpeed(Mathf.CeilToInt(b.SpeedUpTicksLeft / (float)Units.TicksPerSecond)) : "");
         if (held.Length > 0) hud += Environment.NewLine + held.Trim();
         GUI.Label(new Rect(Ui.W * 0.03f, Ui.H * 0.015f, Ui.W * 0.85f, Ui.H * 0.12f), hud, Ui.Hud);
+        DrawStarMeter();
+    }
+
+    // The stars still within reach: a meter draining over the stage's whole time (3T), notched where 3 stars drop to
+    // 2 (at T) and 2 to 1 (at 1.5T), beside three stars that empty as they're lost, and the time left at this rating.
+    private int _starsSeen = 3, _lostStar = -1;
+    private float _starLostAt = -10f;
+    private GUIStyle _meterClock;
+
+    private void DrawStarMeter()
+    {
+        long target = Game.TargetTicks;
+        if (target <= 0) return;
+        long t = Game.ClearedOnTick ?? Game.Tick, end = 3 * target;
+        int stars = t < target ? 3 : 2 * t < 3 * target ? 2 : 1;
+        long nextDrop = stars == 3 ? target : stars == 2 ? (3 * target + 1) / 2 : end;
+        if (stars < _starsSeen)
+        {
+            _lostStar = stars; // the slot that has just emptied
+            _starLostAt = Time.unscaledTime;
+        }
+        _starsSeen = stars;
+
+        float u = Ui.U, right = Ui.W - 14f * u, y = 2.4f * u;
+        _meterClock ??= new GUIStyle(Ui.Numbers) { fontSize = (int)(3.6f * u), alignment = TextAnchor.MiddleRight };
+        const float clockW = 7f;
+        float barW = Ui.W * 0.2f, star = 4.6f * u, gap = 0.5f * u;
+        var bar = new Rect(right - clockW * u - u - barW, y, barW, 3.4f * u);
+        float x = bar.x - u - 3 * star - 2 * gap;
+        for (int i = 0; i < 3; i++)
+        {
+            var slot = new Rect(x + i * (star + gap), bar.center.y - star / 2f, star, star);
+            GUI.DrawTexture(slot, Ui.Star(i < stars), ScaleMode.ScaleToFit);
+            // The star just lost swells and fades away from its slot.
+            float p = (Time.unscaledTime - _starLostAt) / 0.6f;
+            if (i == _lostStar && p < 1f)
+            {
+                var matrix = GUI.matrix;
+                var old = GUI.color;
+                GUIUtility.ScaleAroundPivot(Vector2.one * (1f + 0.7f * p), slot.center + new Vector2(GUI.matrix.m03, GUI.matrix.m13));
+                GUI.color = new Color(1f, 1f, 1f, 1f - p);
+                GUI.DrawTexture(slot, Ui.Star(true), ScaleMode.ScaleToFit);
+                GUI.color = old;
+                GUI.matrix = matrix;
+            }
+        }
+
+        var tint = stars == 3 ? new Color(1f, 0.83f, 0.36f) : stars == 2 ? new Color(1f, 0.6f, 0.22f) : new Color(0.93f, 0.27f, 0.2f);
+        Ui.Meter(bar, 1f - t / (float)end, tint, 2f / 3f, 0.5f);
+        long left = Math.Max(0, (nextDrop - t + Units.TicksPerSecond - 1) / Units.TicksPerSecond);
+        GUI.Label(new Rect(bar.xMax + u, bar.y - u, clockW * u, bar.height + 2 * u), Ui.Clock(left), _meterClock);
     }
 
     private int StageNumber => int.TryParse(name.Replace("Stage ", ""), out int n) ? n : 0;

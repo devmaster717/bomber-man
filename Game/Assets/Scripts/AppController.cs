@@ -376,7 +376,7 @@ public sealed class AppController : MonoBehaviour
         if (GUI.Button(new Rect(left + gridW - bw, by, bw, 10 * u), Text.Next, Ui.Button)) _selectPage++;
         GUI.enabled = true;
         if (GUI.Button(new Rect((w - bw) / 2, by, bw, 10 * u), Text.Home, Ui.Button)) _page = Page.Home;
-        GUI.Label(new Rect(0, by + 10 * u, w, 6 * u), Text.StageRange(first, Mathf.Min(first + StagesPerPage - 1, StageLibrary.Count)), Ui.Small);
+        GUI.Label(new Rect(0, by + 10 * u, w, 6 * u), Text.StageRange(first, Mathf.Min(first + StagesPerPage - 1, StageLibrary.Count)), Ui.SmallNumbers);
     }
 
     // A padlock in the lower half of a locked stage's button, dimmed with it.
@@ -433,7 +433,7 @@ public sealed class AppController : MonoBehaviour
             // The stars pop in, then the jewels count up (ClearCelebration).
             GUI.Label(col.Next(9, 1), Text.StageClear, Ui.Title);
             _celebration?.DrawStars(col.Next(13, 1));
-            GUI.Label(col.Next(5, 1), Text.ClearTime(Ui.Clock(game.ClearedOnTick.GetValueOrDefault() / Units.TicksPerSecond)), Ui.Small);
+            GUI.Label(col.Next(5, 1), Text.ClearTime(Ui.Clock(game.ClearedOnTick.GetValueOrDefault() / Units.TicksPerSecond)), Ui.SmallNumbers);
             var jewels = col.Next(7, 0.5f);
             _celebration?.DrawJewels(jewels, col.Next(5, 2));
         }
