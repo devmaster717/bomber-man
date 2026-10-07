@@ -26,4 +26,10 @@ Frozen citadel
   Ice        Ice002
   Snow       Snow014
 
-The Fx_ textures (flame, ring, soft dot, sparkle) are drawn by the game's own tools.
+Fire and smoke: Kenney's Particle Pack (www.kenney.nl), CC0 1.0; licence in Kenney-Particle-License.txt.
+Repacked into sheets of white shapes, tinted by the particles.
+  Fx_Fireball   fire_01, fire_02, flame_03, flame_02
+  Fx_Tongue     flame_05, flame_06
+  Fx_Smoke      smoke_04, smoke_01, smoke_07, smoke_10
+
+The other Fx_ textures (ring, soft dot, sparkle) are drawn by the game's own tools.

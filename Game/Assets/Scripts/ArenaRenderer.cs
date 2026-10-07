@@ -120,7 +120,8 @@ public sealed class ArenaRenderer : IArenaView
                     // Flames rise up the screen from the lower part of the tile.
                     _flames[i] = PalaceArt.Flames(_root, Vector3.up);
                     _flames[i].transform.position = new Vector3(x, -y - 0.35f, -0.5f);
-                    _flames[i].GetComponent<ParticleSystemRenderer>().sortingOrder = FireOrder;
+                    foreach (var layer in _flames[i].GetComponentsInChildren<ParticleSystemRenderer>())
+                        layer.sortingOrder = layer.name == "Smoke" ? FireOrder - 1 : FireOrder;
                 }
                 _flames[i].Play();
             }

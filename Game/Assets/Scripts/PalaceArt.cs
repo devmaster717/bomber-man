@@ -553,62 +553,186 @@ public static class PalaceArt
 
     // ---- effects ----
 
-    /// <summary>Rising flames for one burning tile; Play while it burns and Stop when it goes out.</summary>
+    /// <summary>
+    /// The fire on one burning tile, in layers (textures from Kenney's Particle Pack, CC0): rolling fireballs that
+    /// swell from yellow through orange to deep red, flame tongues licking upwards, a white-hot glow at the heart, a
+    /// spray of sparks as it lights, and dark smoke curling off. The fireballs and tongues are blended in solid colour,
+    /// so the fire shows on light floors as well as dark; only the glow and sparks add light. Play while the tile burns and <see cref="Extinguish"/> when it goes out; all but the
+    /// smoke vanish with the danger. <paramref name="up"/> is the way flames rise.
+    /// </summary>
     public static ParticleSystem Flames(Transform parent, Vector3 up)
     {
-        var go = new GameObject("Flames");
-        go.transform.SetParent(parent, false);
-        go.transform.rotation = Quaternion.FromToRotation(Vector3.forward, up);
+        bool high = GraphicsQuality.High;
+        var root = new GameObject("Flames").transform;
+        root.SetParent(parent, false);
+        root.rotation = Quaternion.FromToRotation(Vector3.forward, up);
+
+        // Fireballs: the body of the fire, filling the tile from the first frame, in solid colour that cools as each
+        // puff swells and rises (values above 1 glow through the bloom).
+        var fire = Layer(root, "Fireballs", Tint("FireBody", Color.white), 2, 2, high ? 34 : 28);
+        Set(fire, (0.25f, 0.42f), (0.3f, 0.9f), (0.65f, 1.05f), high ? 46 : 36, high ? 10 : 8);
+        Shape(fire, new Vector3(0.7f, 0.7f, 0.05f));
+        Spin(fire, 1.5f);
+        Grow(fire, 0.6f, 1.25f);
+        Fade(fire, new Color(1.7f, 1.45f, 0.75f), new Color(1.5f, 0.75f, 0.18f), new Color(0.95f, 0.26f, 0.06f), new Color(0.28f, 0.08f, 0.05f), 0.95f);
+
+        // Flame tongues: broad licks rising out of the fireballs.
+        var tongues = Layer(root, "Tongues", Tint("FlameBody", Color.white), 2, 1, high ? 14 : 12);
+        Set(tongues, (0.18f, 0.3f), (1.2f, 1.9f), (0.5f, 0.8f), high ? 22 : 18, high ? 4 : 3);
+        var tm = tongues.main;
+        tm.startSize3D = true;
+        tm.startSizeX = new ParticleSystem.MinMaxCurve(0.45f, 0.65f);
+        tm.startSizeY = new ParticleSystem.MinMaxCurve(0.6f, 0.9f);
+        tm.startSizeZ = 1f;
+        Shape(tongues, new Vector3(0.5f, 0.5f, 0.05f));
+        Fade(tongues, new Color(1.8f, 1.6f, 0.9f), new Color(1.6f, 0.95f, 0.3f), new Color(1.2f, 0.45f, 0.1f), new Color(0.5f, 0.12f, 0.04f), 0.85f);
+
+        // The white-hot heart of the fire: a few small glowing puffs that add light.
+        var glow = Layer(root, "Glow", Tint("Fireball", new Color(1.8f, 1.4f, 0.9f)), 2, 2, high ? 12 : 6);
+        Set(glow, (0.12f, 0.2f), (0.1f, 0.4f), (0.4f, 0.6f), high ? 30 : 16, high ? 4 : 2);
+        Shape(glow, new Vector3(0.4f, 0.4f, 0.05f));
+        Spin(glow, 2f);
+        Fade(glow, new Color(1f, 1f, 0.9f), new Color(1f, 0.85f, 0.5f), new Color(1f, 0.55f, 0.2f), new Color(0.6f, 0.2f, 0.05f), 0.8f);
+
+        // Sparks: a spray of streaks as the tile catches, falling back.
+        var sparks = Layer(root, "Sparks", Tint("SoftGlow", new Color(3f, 2.2f, 1.2f)), 1, 1, high ? 16 : 8);
+        Set(sparks, (0.25f, 0.45f), (1.5f, 3.5f), (0.04f, 0.08f), 0, high ? 12 : 6);
+        var sm = sparks.main;
+        sm.gravityModifier = 0.8f;
+        var ss = sparks.shape;
+        ss.shapeType = ParticleSystemShapeType.Hemisphere;
+        ss.radius = 0.15f;
+        var sr = sparks.GetComponent<ParticleSystemRenderer>();
+        sr.renderMode = ParticleSystemRenderMode.Stretch;
+        sr.velocityScale = 0.06f;
+        sr.lengthScale = 1.5f;
+        Fade(sparks, new Color(1f, 1f, 0.85f), new Color(1f, 0.85f, 0.4f), new Color(1f, 0.5f, 0.15f), new Color(0.8f, 0.2f, 0.05f), 1f);
+
+        // Smoke: dark puffs curling up off the fire, which outlast it a little as they thin out.
+        var smoke = Layer(root, "Smoke", Tint("Smoke", new Color(0.17f, 0.15f, 0.14f)), 2, 2, high ? 12 : 6);
+        Set(smoke, (0.6f, 0.9f), (0.3f, 0.7f), (0.5f, 0.8f), high ? 10 : 5, 0);
+        var mm = smoke.main;
+        mm.startDelay = 0.12f;
+        Shape(smoke, new Vector3(0.6f, 0.6f, 0.05f));
+        Spin(smoke, 0.6f);
+        Grow(smoke, 0.8f, 1.8f);
+        Fade(smoke, Color.white, Color.white, Color.white, Color.white, 0.55f, 0.25f);
+
+        fire.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        return fire;
+    }
+
+    // One layer of the fire: a particle system under the root (the first is the root's own), its texture a sheet of
+    // cols x rows shapes, each particle showing one at random for its whole life.
+    private static ParticleSystem Layer(Transform root, string name, Material material, int cols, int rows, int max)
+    {
+        GameObject go;
+        if (root.GetComponent<ParticleSystem>() == null) go = root.gameObject;
+        else
+        {
+            go = new GameObject(name);
+            go.transform.SetParent(root, false);
+        }
         var ps = go.AddComponent<ParticleSystem>();
         ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         var main = ps.main;
         main.duration = 1f;
         main.loop = true;
         main.playOnAwake = false;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(0.28f, 0.45f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.3f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.45f, 0.8f);
-        main.startRotation = new ParticleSystem.MinMaxCurve(-0.4f, 0.4f);
         main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.maxParticles = 60;
+        main.maxParticles = max;
+        main.startRotation = new ParticleSystem.MinMaxCurve(-0.25f, 0.25f);
+        if (cols * rows > 1)
+        {
+            var sheet = ps.textureSheetAnimation;
+            sheet.enabled = true;
+            sheet.mode = ParticleSystemAnimationMode.Grid;
+            sheet.numTilesX = cols;
+            sheet.numTilesY = rows;
+            sheet.animation = ParticleSystemAnimationType.WholeSheet;
+            sheet.frameOverTime = new ParticleSystem.MinMaxCurve(0f, 0.999f);
+        }
+        var r = go.GetComponent<ParticleSystemRenderer>();
+        r.sharedMaterial = material;
+        r.renderMode = ParticleSystemRenderMode.Billboard;
+        r.shadowCastingMode = ShadowCastingMode.Off;
+        return ps;
+    }
+
+    private static void Set(ParticleSystem ps, (float, float) lifetime, (float, float) speed, (float, float) size, int rate, int burst)
+    {
+        var main = ps.main;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(lifetime.Item1, lifetime.Item2);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(speed.Item1, speed.Item2);
+        main.startSize = new ParticleSystem.MinMaxCurve(size.Item1, size.Item2);
         var emission = ps.emission;
-        emission.rateOverTime = GraphicsQuality.High ? 70f : 35f;
+        emission.rateOverTime = rate;
         // A burst on lighting fills the tile at once: the flames show exactly when the tile becomes deadly.
-        emission.SetBursts(new[] { new ParticleSystem.Burst(0f, (short)(GraphicsQuality.High ? 16 : 9)) });
+        if (burst > 0) emission.SetBursts(new[] { new ParticleSystem.Burst(0f, (short)burst) });
+    }
+
+    private static void Shape(ParticleSystem ps, Vector3 box)
+    {
         var shape = ps.shape;
         shape.shapeType = ParticleSystemShapeType.Box;
-        shape.scale = new Vector3(0.75f, 0.75f, 0.05f);
+        shape.scale = box;
+    }
+
+    private static Color Clamp(Color c)
+    {
+        float top = Mathf.Max(1f, Mathf.Max(c.r, Mathf.Max(c.g, c.b)));
+        return new Color(c.r / top, c.g / top, c.b / top, c.a);
+    }
+
+    private static void Spin(ParticleSystem ps, float radiansPerSecond)
+    {
+        var main = ps.main;
+        main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        var spin = ps.rotationOverLifetime;
+        spin.enabled = true;
+        spin.z = new ParticleSystem.MinMaxCurve(-radiansPerSecond, radiansPerSecond);
+    }
+
+    private static void Grow(ParticleSystem ps, float from, float to)
+    {
+        var size = ps.sizeOverLifetime;
+        size.enabled = true;
+        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, from, 1f, to));
+    }
+
+    // Colour through four stops over a particle's life, fading in quickly to the peak opacity and out at the end.
+    // Values above 1 glow through the bloom on High graphics; on Low there's no bloom, so each colour is scaled down
+    // to keep its hue instead of clipping to pale yellow.
+    private static void Fade(ParticleSystem ps, Color a, Color b, Color c, Color d, float peak, float rise = 0.08f)
+    {
+        if (!GraphicsQuality.High) { a = Clamp(a); b = Clamp(b); c = Clamp(c); d = Clamp(d); }
         var colour = ps.colorOverLifetime;
         colour.enabled = true;
         var g = new Gradient();
         g.SetKeys(
-            new[] { new GradientColorKey(new Color(1f, 0.95f, 0.7f), 0f), new GradientColorKey(new Color(1f, 0.55f, 0.12f), 0.35f), new GradientColorKey(new Color(0.7f, 0.12f, 0.04f), 1f) },
-            new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.1f), new GradientAlphaKey(0.7f, 0.5f), new GradientAlphaKey(0f, 1f) });
+            new[] { new GradientColorKey(a, 0f), new GradientColorKey(b, 0.25f), new GradientColorKey(c, 0.6f), new GradientColorKey(d, 1f) },
+            new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(peak, rise), new GradientAlphaKey(peak * 0.75f, 0.6f), new GradientAlphaKey(0f, 1f) });
         colour.color = g;
-        var size = ps.sizeOverLifetime;
-        size.enabled = true;
-        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.7f, 1f, 1.15f));
-        var r = go.GetComponent<ParticleSystemRenderer>();
-        r.sharedMaterial = Tint("Flame", new Color(2.2f, 1.7f, 1.2f));
-        r.renderMode = ParticleSystemRenderMode.Billboard;
-        r.shadowCastingMode = ShadowCastingMode.Off;
-        return ps;
     }
 
     private static ParticleSystem.Particle[] _flameParticles = new ParticleSystem.Particle[64];
 
     /// <summary>
     /// Puts out a tile's flames when it stops being deadly: no new flames, and the ones still rising burn out within
-    /// a tenth of a second, so the fire on screen never outlasts the danger.
+    /// a tenth of a second, so the fire on screen never outlasts the danger (only the smoke drifts off).
     /// </summary>
     public static void Extinguish(ParticleSystem flames)
     {
-        flames.Stop(true, ParticleSystemStopBehavior.StopEmitting);
-        if (_flameParticles.Length < flames.main.maxParticles) _flameParticles = new ParticleSystem.Particle[flames.main.maxParticles];
-        int n = flames.GetParticles(_flameParticles);
-        for (int i = 0; i < n; i++)
-            if (_flameParticles[i].remainingLifetime > 0.1f) _flameParticles[i].remainingLifetime = 0.1f;
-        flames.SetParticles(_flameParticles, n);
+        foreach (var layer in flames.GetComponentsInChildren<ParticleSystem>())
+        {
+            layer.Stop(false, ParticleSystemStopBehavior.StopEmitting);
+            if (layer.name == "Smoke") continue; // smoke drifts on a little as it thins out: it isn't fire
+            if (_flameParticles.Length < layer.main.maxParticles) _flameParticles = new ParticleSystem.Particle[layer.main.maxParticles];
+            int n = layer.GetParticles(_flameParticles);
+            for (int i = 0; i < n; i++)
+                if (_flameParticles[i].remainingLifetime > 0.1f) _flameParticles[i].remainingLifetime = 0.1f;
+            layer.SetParticles(_flameParticles, n);
+        }
     }
 
     /// <summary>A burst of gold sparkles and dust, for a crate breaking or a power-up being picked up.</summary>

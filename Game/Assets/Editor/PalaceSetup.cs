@@ -235,15 +235,13 @@ public static class PalaceSetup
         Finish(glow, null);
 
         // Additive particles and floor glows.
-        foreach (var (name, texture) in new[] { ("Flame", "Fx_Flame"), ("SoftGlow", "Fx_SoftDot"), ("Sparkle", "Fx_Sparkle"), ("Ring", "Fx_Ring") })
-        {
-            var m = Get(Materials + name + ".mat", "Universal Render Pipeline/Particles/Unlit");
-            m.SetTexture("_BaseMap", Load(Textures + texture + ".png"));
-            m.SetFloat("_Surface", 1f);
-            m.SetFloat("_Blend", 2f); // additive
-            m.SetColor("_BaseColor", Color.white);
-            Finish(m, ParticleGUI.SetMaterialKeywords);
-        }
+        foreach (var (name, texture) in new[] { ("SoftGlow", "Fx_SoftDot"), ("Sparkle", "Fx_Sparkle"), ("Ring", "Fx_Ring"), ("Fireball", "Fx_Fireball") })
+            Particles(name, texture, additive: true);
+        // Smoke and the body of the fire are blended over what's behind them rather than added to it, so they show
+        // on light floors too (added light washes out to white there).
+        Particles("Smoke", "Fx_Smoke", additive: false);
+        Particles("FireBody", "Fx_Fireball", additive: false);
+        Particles("FlameBody", "Fx_Tongue", additive: false);
 
         // A sky only for reflections and ambient light: the camera itself clears to a dark colour.
         var sky = Get(Materials + "Sky.mat", "Skybox/Procedural");
@@ -252,6 +250,17 @@ public static class PalaceSetup
         sky.SetFloat("_Exposure", 1.1f);
         sky.SetFloat("_AtmosphereThickness", 0.8f);
         EditorUtility.SetDirty(sky);
+    }
+
+    // A particle material: the texture, tinted per particle; added to the scene (glows) or blended over it (smoke).
+    private static void Particles(string name, string texture, bool additive)
+    {
+        var m = Get(Materials + name + ".mat", "Universal Render Pipeline/Particles/Unlit");
+        m.SetTexture("_BaseMap", Load(Textures + texture + ".png"));
+        m.SetFloat("_Surface", 1f);
+        m.SetFloat("_Blend", additive ? 2f : 0f); // 2 = additive, 0 = alpha
+        m.SetColor("_BaseColor", Color.white);
+        Finish(m, ParticleGUI.SetMaterialKeywords);
     }
 
     private static Material Lit(string name) => Get(Materials + name + ".mat", "Universal Render Pipeline/Lit");
