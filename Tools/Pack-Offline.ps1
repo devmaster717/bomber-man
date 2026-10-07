@@ -53,7 +53,7 @@ try {
 
     if ($History) {
         Write-Host "Bundling the Git history..."
-        git bundle create (Join-Path $Out "BomberMan.bundle") --all
+        git bundle create (Join-Path $Out "BomberMan.bundle") --branches --tags
         if ($LASTEXITCODE -ne 0) { throw "git bundle failed" }
     }
 } finally {
