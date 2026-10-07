@@ -146,6 +146,9 @@ public static class Text
     public const string View = "View";
     public const string View2D = "2D";
     public const string View3D = "3D";
+    public const string Graphics = "Graphics";
+    public const string Low = "Low";
+    public const string High = "High";
     public const string Nickname = "Nickname";
     public const string Avatar = "Avatar";
     public const string Back = "Back";

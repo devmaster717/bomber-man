@@ -82,6 +82,8 @@ namespace BombArena.Core
         public bool PadOnRight { get; set; }
         /// <summary>Draw the arena in 3D (default) or in the original flat 2D.</summary>
         public bool View3D { get; set; } = true;
+        /// <summary>High or Low graphics; null until chosen, when the game picks one to suit the device.</summary>
+        public bool? HighGraphics { get; set; }
 
         /// <summary>Saves as "key = value" lines, like the stage files.</summary>
         public string Serialize()
@@ -106,6 +108,7 @@ namespace BombArena.Core
             Put("buttonScale", ButtonScalePercent);
             Put("padSide", PadOnRight ? "Right" : "Left");
             Put("view3d", View3D);
+            if (HighGraphics is bool high) Put("graphics", high ? "High" : "Low");
             return sb.ToString();
         }
 
@@ -156,6 +159,7 @@ namespace BombArena.Core
                     case "padSide": p.PadOnRight = v == "Right"; break;
                     case "leftHanded": p.PadOnRight = b; break; // saves before Pad side: left-handed put the pad on the right
                     case "view3d": p.View3D = b; break;
+                    case "graphics": p.HighGraphics = v == "High" ? true : v == "Low" ? false : (bool?)null; break;
                     default:
                         if (key.StartsWith("stars.") && int.TryParse(key.Substring(6), out int stage))
                             p.BestStars[stage] = (int)n;
