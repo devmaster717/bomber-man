@@ -34,6 +34,7 @@ public sealed class AppController : MonoBehaviour
     private Texture2D _qr;
     private Feedback _feedback;
     private ClearReward? _lastReward;
+    private ClearCelebration _celebration;
     private Page _page = Page.Home;
     private Page _settingsReturn = Page.Home;
     private GameView _view;
@@ -151,6 +152,7 @@ public sealed class AppController : MonoBehaviour
         bool cleared = game.Outcome == Outcome.Cleared;
         _wallet.EndAttempt(cleared);
         if (cleared) _lastReward = _progress.RecordClear(_stage, game.Stars, game.Bomber.Loadout);
+        _celebration = cleared ? new ClearCelebration(game.Stars, _lastReward) : null;
         _page = Page.Results;
     }
 
@@ -424,13 +426,16 @@ public sealed class AppController : MonoBehaviour
     private void DrawResults()
     {
         var game = _view.Game;
-        var col = new Ui.Column(Ui.Panel(0.55f, 0.85f));
-        if (game.Outcome == Outcome.Cleared)
+        bool cleared = game.Outcome == Outcome.Cleared;
+        var col = new Ui.Column(Ui.Panel(0.55f, cleared ? 0.92f : 0.85f), cleared ? 2f : 3f);
+        if (cleared)
         {
-            GUI.Label(col.Next(10), Text.StageClear, Ui.Title);
-            GUI.Label(col.Next(7), Text.StarsAndTime(game.Stars, Ui.Clock(game.ClearedOnTick.GetValueOrDefault() / Units.TicksPerSecond)), Ui.Label);
-            if (_lastReward is ClearReward r)
-                GUI.Label(col.Next(7), Text.JewelsEarned(r.Total, r.ClearJewels, r.StarBonus, r.FirstThreeStars), Ui.Small);
+            // The stars pop in, then the jewels count up (ClearCelebration).
+            GUI.Label(col.Next(9, 1), Text.StageClear, Ui.Title);
+            _celebration?.DrawStars(col.Next(13, 1));
+            GUI.Label(col.Next(5, 1), Text.ClearTime(Ui.Clock(game.ClearedOnTick.GetValueOrDefault() / Units.TicksPerSecond)), Ui.Small);
+            var jewels = col.Next(7, 0.5f);
+            _celebration?.DrawJewels(jewels, col.Next(5, 2));
         }
         else
         {
@@ -438,7 +443,7 @@ public sealed class AppController : MonoBehaviour
             GUI.Label(col.Next(7), Text.LivesLeft(_wallet.Lives), Ui.Label);
         }
 
-        if (game.Outcome == Outcome.Cleared && _stage < StageLibrary.Count && GUI.Button(col.Next(10), Text.NextStage, Ui.Button))
+        if (cleared && _stage < StageLibrary.Count && GUI.Button(col.Next(10), Text.NextStage, Ui.Button))
         {
             CloseView();
             StartAttempt(_stage + 1);

@@ -19,6 +19,8 @@ public sealed class Feedback : MonoBehaviour
 
     private bool _musicOn = true;
     private AudioSource _sfx;
+    // Plays one-shots at a chosen pitch (the rising star chimes, the jewel count's ticks).
+    private AudioSource _pitched;
     // Two music players, so one track can fade out while the next fades in.
     private AudioSource _musicNow, _musicOld;
     private float _fade = 1f;
@@ -39,6 +41,7 @@ public sealed class Feedback : MonoBehaviour
     private void Awake()
     {
         _sfx = gameObject.AddComponent<AudioSource>();
+        _pitched = gameObject.AddComponent<AudioSource>();
         _musicNow = MusicPlayer();
         _musicOld = MusicPlayer();
         _place = Clip("Sfx_BombPlace");
@@ -128,12 +131,32 @@ public sealed class Feedback : MonoBehaviour
     public void StageClear() => Play(_clear, 0.8f);
     public void StageFailed() => Play(_failed, 0.7f);
 
+    /// <summary>The <paramref name="nth"/> star (0, 1, 2) of a stage clear lands: a chime a step higher each time.</summary>
+    public void StarAwarded(int nth)
+    {
+        PlayPitched(_pickup, 0.7f, 1f + 0.12f * nth);
+        Vibrate(25, 90);
+    }
+
+    /// <summary>One step of the jewel count rolling up: a soft, high tick.</summary>
+    public void JewelTick() => PlayPitched(_click, 0.22f, 1.7f);
+
+    /// <summary>The jewel count has reached its total.</summary>
+    public void JewelsAwarded() => Play(_pickup, 0.8f);
+
     /// <summary>A menu control was pressed: a soft click and a very light tap.</summary>
     public void Click() { Play(_click, 0.4f); Vibrate(8, 40); }
 
     private void Play(AudioClip clip, float volume)
     {
         if (SoundOn && clip != null) _sfx.PlayOneShot(clip, volume);
+    }
+
+    private void PlayPitched(AudioClip clip, float volume, float pitch)
+    {
+        if (!SoundOn || clip == null) return;
+        _pitched.pitch = pitch;
+        _pitched.PlayOneShot(clip, volume);
     }
 
     /// <summary>A pulse of <paramref name="ms"/> milliseconds at an amplitude of 1–255 (Android 8.0+ supports amplitude).</summary>
