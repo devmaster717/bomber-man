@@ -1,10 +1,13 @@
 # Builds Game/Builds/BombArena.apk from the command line. Exit code 0 on success.
+# -Release makes a signed Game/Builds/BombArena.aab (for Google Play) and BombArena-release.apk, reading the keystore
+# from BOMBARENA_KEYSTORE, BOMBARENA_KEYSTORE_PASS, BOMBARENA_KEY_ALIAS and BOMBARENA_KEY_PASS (see issue #42).
 # -Offline builds without the network (after one online build has filled Gradle's cache): Gradle runs with
 # --offline and Android's sdkmanager is cut off so it lists the installed SDK instead of fetching remote lists.
 param(
     [string]$Unity = "D:\Unity\6000.0.84f1\Editor\Unity.exe",
     [string]$Log = "C:\Temp\bombarena-build.log",
-    [switch]$Offline
+    [switch]$Offline,
+    [switch]$Release
 )
 $ErrorActionPreference = "Stop"
 $project = (Resolve-Path (Join-Path $PSScriptRoot "..\Game")).Path
@@ -30,6 +33,15 @@ if (System.getenv('BOMBARENA_GRADLE_OFFLINE') == '1') {
     $env:SDKMANAGER_OPTS = "-Dhttp.proxyHost=127.0.0.1 -Dhttp.proxyPort=9 -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=9"
 }
 
+if ($Release) {
+    foreach ($name in "BOMBARENA_KEYSTORE", "BOMBARENA_KEYSTORE_PASS", "BOMBARENA_KEY_ALIAS", "BOMBARENA_KEY_PASS") {
+        if (-not [Environment]::GetEnvironmentVariable($name)) { Write-Error "-Release needs $name (see issue #42)"; exit 1 }
+    }
+    $env:BOMBARENA_RELEASE = "1"
+} else {
+    $env:BOMBARENA_RELEASE = ""
+}
+
 $p = Start-Process -FilePath $Unity -PassThru -NoNewWindow -ArgumentList @(
     "-batchmode", "-projectPath", "`"$project`"", "-buildTarget", "Android",
     "-executeMethod", "Builds.AndroidBatch", "-logFile", "`"$Log`"")
@@ -37,4 +49,6 @@ $p = Start-Process -FilePath $Unity -PassThru -NoNewWindow -ArgumentList @(
 $p.WaitForExit()
 $lines = Get-Content $Log
 $lines | Select-String -Pattern "BUILD RESULT|error CS\d+|ninja: error|What went wrong|offline mode" | Select-Object -First 15 | ForEach-Object { $_.Line }
-if ($lines | Select-String -SimpleMatch "BUILD RESULT: Succeeded") { exit 0 } else { exit 1 }
+# A release builds twice (.aab, then .apk): both must succeed.
+$results = @($lines | Select-String -Pattern "BUILD RESULT: ")
+if ($results.Count -gt 0 -and -not ($results | Where-Object { $_.Line -notmatch "BUILD RESULT: Succeeded" })) { exit 0 } else { exit 1 }

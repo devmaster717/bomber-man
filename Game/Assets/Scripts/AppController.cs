@@ -473,6 +473,7 @@ public sealed class AppController : MonoBehaviour
         _feedback.VibrationOn = _profile.VibrationOn;
 
         if (GUI.Button(new Rect(w * 0.4f, 89 * u, w * 0.2f, 9 * u), Text.Back, Ui.Button)) LeaveSettings();
+        GUI.Label(new Rect(w * 0.04f, 90 * u, w * 0.25f, 7 * u), Text.VersionLabel(Application.version), Ui.Small);
         if (GUI.Button(new Rect(w * 0.74f, 90 * u, w * 0.2f, 7 * u), Text.PrivacyPolicy, Ui.SmallButton))
         {
             Save();

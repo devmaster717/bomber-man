@@ -159,6 +159,7 @@ public static class Text
     public const string Back = "Back";
     public const string QuitGame = "Leave Bomb Arena?";
     public const string PrivacyPolicy = "Privacy policy";
+    public static string VersionLabel(string version) => $"Version {version}";
 
     // How to play
     public const string HowToPlay = "How to play";
