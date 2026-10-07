@@ -84,6 +84,8 @@ namespace BombArena.Core
         public bool View3D { get; set; } = true;
         /// <summary>High or Low graphics; null until chosen, when the game picks one to suit the device.</summary>
         public bool? HighGraphics { get; set; }
+        /// <summary>The arena's look (palace, fortress, garden, frozen citadel); the game knows the themes, 0 is the palace.</summary>
+        public int Arena { get; set; }
 
         /// <summary>Saves as "key = value" lines, like the stage files.</summary>
         public string Serialize()
@@ -109,6 +111,7 @@ namespace BombArena.Core
             Put("padSide", PadOnRight ? "Right" : "Left");
             Put("view3d", View3D);
             if (HighGraphics is bool high) Put("graphics", high ? "High" : "Low");
+            Put("arena", Arena);
             return sb.ToString();
         }
 
@@ -160,6 +163,7 @@ namespace BombArena.Core
                     case "leftHanded": p.PadOnRight = b; break; // saves before Pad side: left-handed put the pad on the right
                     case "view3d": p.View3D = b; break;
                     case "graphics": p.HighGraphics = v == "High" ? true : v == "Low" ? false : (bool?)null; break;
+                    case "arena": p.Arena = (int)n; break;
                     default:
                         if (key.StartsWith("stars.") && int.TryParse(key.Substring(6), out int stage))
                             p.BestStars[stage] = (int)n;
@@ -172,7 +176,7 @@ namespace BombArena.Core
         private static readonly HashSet<string> NumericKeys = new HashSet<string>
         {
             "jewels", "lives", "regenStartedAt", "carried.bombUps", "carried.speedTicks", "inventory.bombUps",
-            "inventory.speedTicks", "avatar", "buttonScale", "stars",
+            "inventory.speedTicks", "avatar", "buttonScale", "stars", "arena",
         };
 
         private static IEnumerable<int> Ints(string csv)

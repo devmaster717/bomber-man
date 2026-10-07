@@ -34,10 +34,10 @@ public static class PalaceSetup
     }
 
     /// <summary>
-    /// Cuts the hero pictures in Assets/Art/Avatars into round portraits with a gold ring (see
-    /// docs/art/avatar-prompts.md). The pictures are either one sheet of all ten (sheet.png: 5 columns by 2 rows, in
-    /// HeroAvatars.Keys order) or one file per hero named by its key; a hero's own file wins over its sheet cell.
-    /// A hero with neither gets a plain disc in its kingdom colour.
+    /// Cuts the avatar pictures in Assets/Art/Avatars into round portraits with a gold ring (see
+    /// docs/art/avatar-prompts.md). The pictures are one sheet of all ten (sheet.png: 5 columns by 2 rows, in
+    /// PlayerAvatars.Keys order) and/or one file per avatar named by its key, which wins over its sheet cell.
+    /// An avatar with neither gets a plain disc in its colour.
     /// </summary>
     private static void BakeAvatars()
     {
@@ -45,21 +45,22 @@ public static class PalaceSetup
         Directory.CreateDirectory(Avatars);
         var gold = new Color(0.91f, 0.76f, 0.38f);
         var sheet = LoadSource("sheet");
-        for (int i = 0; i < HeroAvatars.Count; i++)
+        for (int i = 0; i < PlayerAvatars.Count; i++)
         {
-            var own = LoadSource(HeroAvatars.Keys[i]);
+            var own = LoadSource(PlayerAvatars.Keys[i]);
             var source = own ?? sheet;
-            // The part of the source this hero takes: the whole picture, or its cell of the sheet (row 0 on top).
+            // The part of the source this avatar takes: the whole picture, or its cell of the sheet (row 0 on top).
             float cw = source == null ? 0 : (own != null ? source.width : source.width / 5f);
             float ch = source == null ? 0 : (own != null ? source.height : source.height / 2f);
             float cx = own != null ? 0 : i % 5 * cw;
             float cy = source == null ? 0 : (own != null ? 0 : (1 - i / 5) * ch);
             if (own == null) { cx += cw * 0.03f; cy += ch * 0.03f; cw *= 0.94f; ch *= 0.94f; } // skip any lines between cells
-            // The middle square of that part (the top square of a tall one, where the face is).
+            // A square across the middle of that part; in a tall one, centred 38% of the way down, where a headshot's
+            // face is (so hair and chin both fit).
             float side = Mathf.Min(cw, ch);
             float x0 = cx + (cw - side) / 2f;
-            float y0 = cy + ch - side;
-            var back = HeroAvatars.Backdrop(i);
+            float y0 = Mathf.Clamp(cy + ch * 0.62f - side / 2f, cy, cy + ch - side);
+            var back = PlayerAvatars.Backdrop(i);
             var portrait = new Texture2D(size, size, TextureFormat.RGBA32, false);
             var px = new Color[size * size];
             for (int y = 0; y < size; y++)
@@ -112,9 +113,10 @@ public static class PalaceSetup
     {
         EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
         Directory.CreateDirectory(Sprites);
-        foreach (var (key, build, top) in PalaceSprites.All())
+        foreach (var (key, build, top, theme) in PalaceSprites.All())
         {
-            var texture = PalaceSprites.Render(build, top);
+            Texture2D texture;
+            using (theme.Use()) texture = PalaceSprites.Render(build, top);
             var path = Sprites + key + ".png";
             if (!File.Exists(path) || VisiblyDifferent(texture, File.ReadAllBytes(path))) File.WriteAllBytes(path, texture.EncodeToPNG());
             Object.DestroyImmediate(texture);
@@ -189,8 +191,15 @@ public static class PalaceSetup
     private static void EnsureMaterials()
     {
         Directory.CreateDirectory(Materials);
-        foreach (var name in new[] { "Floor", "Marble", "Stone", "Wood", "Gold", "Carpet" })
+        // Palace, then the fortress, garden and frozen citadel themes (ArenaTheme), each from its own textures.
+        foreach (var name in new[] { "Floor", "Marble", "Stone", "Wood", "Gold", "Carpet",
+                     "Paving", "Brick", "Earth", "Lawn", "Rock", "Plaster", "Roof", "Bamboo", "Pebbles", "Ice", "Snow" })
             SetUp(Lit(name), name);
+        // Variants built from other textures: bronze and silver from the gold's surface, and red lacquer with the
+        // wood's grain under the marble's polish.
+        SetUp(Lit("Bronze"), "Gold", "Gold", "Gold", new Color(0.85f, 0.55f, 0.34f));
+        SetUp(Lit("Silver"), null, "Gold", "Gold", new Color(0.86f, 0.89f, 0.95f));
+        SetUp(Lit("Lacquer"), "Wood", "Wood", "Marble", new Color(0.72f, 0.1f, 0.08f));
 
         // Plain glossy and matte surfaces, tinted per use at runtime (same shader variant, so nothing is stripped).
         var glossy = Lit("Glossy");
@@ -235,14 +244,17 @@ public static class PalaceSetup
 
     private static Material Lit(string name) => Get(Materials + name + ".mat", "Universal Render Pipeline/Lit");
 
-    private static void SetUp(Material m, string name)
+    private static void SetUp(Material m, string name) => SetUp(m, name, name, name, Color.white);
+
+    /// <summary>A textured material: colour, normal and metallic/smoothness maps from the named sets (no colour map: plain).</summary>
+    private static void SetUp(Material m, string colour, string normal, string surface, Color tint)
     {
-        m.SetTexture("_BaseMap", Load(Textures + name + "_Color.jpg"));
-        m.SetTexture("_BumpMap", Load(Textures + name + "_Normal.jpg"));
+        m.SetTexture("_BaseMap", colour == null ? null : Load(Textures + colour + "_Color.jpg"));
+        m.SetTexture("_BumpMap", Load(Textures + normal + "_Normal.jpg"));
         m.SetFloat("_BumpScale", 1f);
-        m.SetTexture("_MetallicGlossMap", Load(Textures + name + "_MetallicSmoothness.png"));
+        m.SetTexture("_MetallicGlossMap", Load(Textures + surface + "_MetallicSmoothness.png"));
         m.SetFloat("_Smoothness", 1f); // scales the map's smoothness
-        m.SetColor("_BaseColor", Color.white);
+        m.SetColor("_BaseColor", tint);
         Finish(m);
     }
 

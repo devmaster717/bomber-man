@@ -3,7 +3,7 @@ using BombArena.Core;
 using UnityEngine;
 
 /// <summary>
-/// The flat 2D view: the palace drawn from above with sprites rendered from the 3D models (<see cref="PalaceSprites"/>),
+/// The flat 2D view: the arena drawn from above with sprites rendered from the 3D models (<see cref="PalaceSprites"/>),
 /// under an overhead camera. Holds no rules: every frame it mirrors what the core says. World space: one unit per
 /// tile, tile (x, y) centred at (x, -y) so row 0 is at the top.
 /// </summary>
@@ -65,7 +65,7 @@ public sealed class ArenaRenderer : IArenaView
         }
         SyncEnemyList();
         _camera = ArenaCamera.SetUp(arena);
-        _camera.backgroundColor = PalaceArt.Navy;
+        _camera.backgroundColor = ArenaTheme.Current.Backdrop;
         PalaceArt.Finish(_root, _camera, threeD: false);
     }
 
@@ -207,13 +207,13 @@ public sealed class ArenaRenderer : IArenaView
         };
         _blocks[i].enabled = _blocks[i].sprite != null;
 
-        // A crate breaking scatters gold sparkles.
+        // A breakable block going scatters sparkles.
         if (burst && was == Tile.SoftBlock && tile != Tile.SoftBlock)
         {
             var ps = _bursts.Find(q => !q.IsAlive());
             if (ps == null)
             {
-                _bursts.Add(ps = PalaceArt.Burst(_root, Vector3.back, new Color(1.8f, 1.4f, 0.7f)));
+                _bursts.Add(ps = PalaceArt.Burst(_root, Vector3.back, ArenaTheme.Current.Burst));
                 ps.GetComponent<ParticleSystemRenderer>().sortingOrder = FireOrder;
             }
             ps.transform.position = new Vector3(x, -y, -0.5f);

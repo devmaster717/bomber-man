@@ -143,3 +143,7 @@ The sum of all entry fees in a round, paid to the winner.
 **Avatar**:
 A headshot portrait shown next to the player's nickname (home screen, room, battle header). It is display only: the bomber in the arena looks the same whichever avatar is chosen.
 _Avoid_: Skin, character
+
+**Arena theme**:
+How the arena looks: Palace, Fortress (Three Kingdoms), Garden or Frozen (citadel), chosen in Settings > Arena. It changes the floor, the blocks, the exit and the lighting in both views, never the rules; bombers, bombs, enemies and power-ups look the same in every theme. Each player sees their own choice, also in a Bluetooth round.
+_Avoid_: Skin, level style

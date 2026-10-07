@@ -1,19 +1,20 @@
-# Avatar prompt: Three Kingdoms heroes
+# Avatar pictures
 
-The 10 avatars are head-and-shoulders portraits of Three Kingdoms heroes in a modern 3D animated-film style. They're
-made with an AI image tool (Midjourney, ChatGPT / DALL·E, Ideogram or similar) as **one picture with all ten in a
-grid**, which also keeps their style consistent. The build cuts the grid into ten round, gold-ringed portraits.
+The 10 avatars are cartoon headshots in a modern 3D animated-film style, made with an AI image tool as **one picture
+with all ten in a 5 x 2 grid** (which keeps them in one style). The current set is
+`Game/Assets/Art/Avatars/sheet.png`: ten young people and parents in casual clothes. The build cuts the grid into ten
+round, gold-ringed portraits, centring each on the face.
 
-## How to make them
+## Making a new set
 
-1. Paste the prompt below into the image tool. In Midjourney add `--ar 5:2` at the end; in other tools pick the widest
-   landscape size they offer.
-2. Regenerate until all ten look right and are in the right order (top row left to right, then bottom row).
-3. Save it as `Game/Assets/Art/Avatars/sheet.png` (PNG or JPG; at least 2000 pixels wide is best).
+1. Write a prompt like the one below (it describes Three Kingdoms heroes; describe whoever you want instead). In
+   Midjourney add `--ar 5:2` or `--ar 3:2`; in other tools pick a wide landscape size.
+2. Regenerate until all ten look right.
+3. Save it over `Game/Assets/Art/Avatars/sheet.png` (PNG or JPG; WebP must be converted first).
 4. Build (`Tools/Build-Android.ps1`) or run *Bomb Arena > Set Up Palace Look* in Unity.
 
-To redo one hero without regenerating the whole sheet, save a single square portrait as
-`Game/Assets/Art/Avatars/<file name>.png` using the names in the table; it replaces that hero's cell.
+To redo one avatar without regenerating the sheet, save a single square headshot as `Game/Assets/Art/Avatars/<n>.png`,
+where `<n>` is its cell: 0 to 4 along the top row, 5 to 9 along the bottom; it replaces that cell.
 
 ## The prompt
 
@@ -46,21 +47,3 @@ To redo one hero without regenerating the whole sheet, save a single square port
 >     flowers, pink and lavender silk robe, rose-pink background.
 
 Tip: avoid naming film studios; some tools refuse that, and the style words above get the same look.
-
-## Grid order and single-hero file names
-
-| Cell | Hero | Kingdom | File to replace one cell |
-|------|------|---------|--------------------------|
-| Top 1 | Liu Bei | Shu | `0-liubei.png` |
-| Top 2 | Guan Yu | Shu | `1-guanyu.png` |
-| Top 3 | Zhang Fei | Shu | `2-zhangfei.png` |
-| Top 4 | Zhuge Liang | Shu | `3-zhugeliang.png` |
-| Top 5 | Zhao Yun | Shu | `4-zhaoyun.png` |
-| Bottom 1 | Cao Cao | Wei | `5-caocao.png` |
-| Bottom 2 | Sun Quan | Wu | `6-sunquan.png` |
-| Bottom 3 | Lü Bu | none | `7-lubu.png` |
-| Bottom 4 | Sun Shangxiang | Wu | `8-sunshangxiang.png` |
-| Bottom 5 | Diaochan | none | `9-diaochan.png` |
-
-The background colours group the heroes by kingdom: green for Shu, blue for Wei, red for Wu, and purple or pink for
-the two who belong to none.

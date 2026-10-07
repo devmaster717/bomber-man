@@ -1,27 +1,26 @@
 using UnityEngine;
 
 /// <summary>
-/// The 10 avatars: portraits of Three Kingdoms heroes, shown next to nicknames (display only). The pictures are made
-/// with an image tool (docs/art/avatar-prompts.md), saved under Assets/Art/Avatars, and cut into round, gold-ringed
-/// portraits under Resources/Palace/Avatars before each build (PalaceSetup).
+/// The 10 avatars: cartoon headshots shown next to nicknames (display only). The pictures come from an image tool
+/// (docs/art/avatar-prompts.md) as one sheet of ten under Assets/Art/Avatars, cut into round, gold-ringed portraits
+/// under Resources/Palace/Avatars before each build (PalaceSetup).
 /// </summary>
-public static class HeroAvatars
+public static class PlayerAvatars
 {
     public const string Folder = "Palace/Avatars/";
     public const int Count = 10;
 
-    /// <summary>File names of the source pictures in Assets/Art/Avatars, without the extension.</summary>
-    public static readonly string[] Keys =
-    {
-        "0-liubei", "1-guanyu", "2-zhangfei", "3-zhugeliang", "4-zhaoyun",
-        "5-caocao", "6-sunquan", "7-lubu", "8-sunshangxiang", "9-diaochan",
-    };
+    /// <summary>
+    /// File names (without extension) of single pictures in Assets/Art/Avatars that replace one cell of the sheet:
+    /// avatar 0 is the sheet's top-left cell, 4 its top-right, 5 bottom-left, 9 bottom-right.
+    /// </summary>
+    public static readonly string[] Keys = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
 
-    /// <summary>Each hero's kingdom colour: green for Shu, blue for Wei, red for Wu, purple and rose for the others.</summary>
+    /// <summary>Each avatar's background colour on the sheet, used as a plain disc when its picture is missing.</summary>
     private static readonly Color[] Backdrops =
     {
-        Hex("#1E6B4A"), Hex("#1E6B4A"), Hex("#1E6B4A"), Hex("#1E6B4A"), Hex("#1E6B4A"),
-        Hex("#22407A"), Hex("#8E1F28"), Hex("#56307A"), Hex("#8E1F28"), Hex("#B05A7A"),
+        Hex("#3E6FC9"), Hex("#E08A4A"), Hex("#4FA36A"), Hex("#8A63C9"), Hex("#3E7FD0"),
+        Hex("#E3B84F"), Hex("#D9675F"), Hex("#3E6FC9"), Hex("#3FA39A"), Hex("#6F63C9"),
     };
 
     /// <summary>The colour shown for avatar <paramref name="i"/> while it has no picture.</summary>

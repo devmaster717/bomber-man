@@ -154,6 +154,7 @@ public static class Text
     public const string Graphics = "Graphics";
     public const string Low = "Low";
     public const string High = "High";
+    public const string Arena = "Arena";
     public const string Nickname = "Nickname";
     public const string Avatar = "Avatar";
     public const string Back = "Back";

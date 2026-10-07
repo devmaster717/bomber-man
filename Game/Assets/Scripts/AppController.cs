@@ -304,7 +304,7 @@ public sealed class AppController : MonoBehaviour
             GUI.color = i == selected ? Color.white : new Color(1f, 1f, 1f, 0.45f);
             if (GUI.Button(r, GUIContent.none, Ui.Button)) selected = i;
             GUI.DrawTexture(new Rect(r.x + size * 0.15f, r.y + size * 0.15f, size * 0.7f, size * 0.7f),
-                HeroAvatars.Portrait(i), ScaleMode.ScaleToFit);
+                PlayerAvatars.Portrait(i), ScaleMode.ScaleToFit);
             GUI.color = old;
             GUI.enabled = true;
         }
@@ -314,7 +314,7 @@ public sealed class AppController : MonoBehaviour
     {
         DrawWalletBar();
         float u = Ui.U;
-        GUI.DrawTexture(new Rect(3 * u, 2 * u, 10 * u, 10 * u), HeroAvatars.Portrait(_profile.Avatar), ScaleMode.ScaleToFit);
+        GUI.DrawTexture(new Rect(3 * u, 2 * u, 10 * u, 10 * u), PlayerAvatars.Portrait(_profile.Avatar), ScaleMode.ScaleToFit);
         GUI.DrawTexture(new Rect(2.4f * u, 1.4f * u, 11.2f * u, 11.2f * u), Ui.AvatarRing, ScaleMode.ScaleToFit);
         GUI.Label(new Rect(14 * u, 2 * u, 40 * u, 10 * u), _profile.Nickname, Ui.Small);
         var col = new Ui.Column(new Rect(Ui.W * 0.3f, Ui.H * 0.12f, Ui.W * 0.4f, Ui.H * 0.88f), 0f);
@@ -469,6 +469,7 @@ public sealed class AppController : MonoBehaviour
             _profile.HighGraphics = high;
             GraphicsQuality.Apply(high);
         }
+        _profile.Arena = Cycle(new Rect(rx, 58 * u, rw, 8 * u), Text.Arena, ArenaTheme.All.Length, _profile.Arena, i => ArenaTheme.At(i).Name);
 
         // Bottom: avatars the player owns can be chosen (more come from the shop).
         GUI.Label(new Rect(0, 69 * u, w, 5 * u), Text.Avatar, Ui.Small);
@@ -548,7 +549,7 @@ public sealed class AppController : MonoBehaviour
             var r = new Rect(x + i * (size + gap), 61 * u, size, size);
             bool owned = _shop.Owns(i);
             if (GUI.Button(r, GUIContent.none, Ui.Button) && !owned) _shopMessage = Message(_shop.BuyAvatar(i));
-            GUI.DrawTexture(new Rect(r.x + size * 0.15f, r.y + size * 0.15f, size * 0.7f, size * 0.7f), HeroAvatars.Portrait(i), ScaleMode.ScaleToFit);
+            GUI.DrawTexture(new Rect(r.x + size * 0.15f, r.y + size * 0.15f, size * 0.7f, size * 0.7f), PlayerAvatars.Portrait(i), ScaleMode.ScaleToFit);
             GUI.Label(new Rect(r.x - gap / 2, r.yMax, size + gap, 5 * u), owned ? Text.Owned : Shop.AvatarPrice.ToString(), Ui.Small);
         }
 
@@ -622,6 +623,17 @@ public sealed class AppController : MonoBehaviour
         if (GUI.Button(new Rect(r.x + r.width * 0.7f, r.y, r.width * 0.3f, r.height), second, Ui.Button)) secondChosen = true;
         GUI.color = old;
         return secondChosen;
+    }
+
+    /// <summary>A label and the chosen option between back and forward arrows, which step through <paramref name="count"/> options.</summary>
+    private static int Cycle(Rect r, string label, int count, int chosen, System.Func<int, string> name)
+    {
+        chosen = ((chosen % count) + count) % count;
+        GUI.Label(new Rect(r.x, r.y, r.width * 0.4f, r.height), label, Ui.Label);
+        if (GUI.Button(new Rect(r.x + r.width * 0.4f, r.y, r.width * 0.12f, r.height), "<", Ui.Button)) chosen = (chosen + count - 1) % count;
+        GUI.Label(new Rect(r.x + r.width * 0.52f, r.y, r.width * 0.36f, r.height), name(chosen), Ui.Label);
+        if (GUI.Button(new Rect(r.x + r.width * 0.88f, r.y, r.width * 0.12f, r.height), ">", Ui.Button)) chosen = (chosen + 1) % count;
+        return chosen;
     }
 
     private static bool Toggle(Rect r, string label, bool value)

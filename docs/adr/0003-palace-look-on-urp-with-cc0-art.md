@@ -8,4 +8,5 @@ The game moved from flat placeholder shapes to a "royal palace" look in both vie
 - The SRP Batcher is off: with it on, objects were drawn with other objects' materials in testing (Unity 6.0.84, URP 17.0.4). Arena blocks are merged with static batching instead. Revisit this after a Unity update.
 - Ambient light and reflections are set in code (a warm probe and a generated palace-hall cubemap), not baked, because the arena is built at runtime.
 - Swapping in real models later means replacing `PalaceArt`'s builders; the views and the core don't change.
-- The textures and fonts add about 2 MB. Their licences (CC0 for the textures, OFL for the fonts, whose text ships beside them) allow use in a paid app.
+- Arena themes (Fortress, Garden, Frozen, added later beside the palace; `ArenaTheme`) reuse this pipeline: their own CC0 textures and lighting, block models chosen by theme in `PalaceArt`, and 2D sprites rendered per theme with the theme's key as a prefix. Characters, bombs and power-ups are shared.
+- The textures and fonts add about 2 MB (about 4 MB with the themes). Their licences (CC0 for the textures, OFL for the fonts, whose text ships beside them) allow use in a paid app.

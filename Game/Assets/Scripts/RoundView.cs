@@ -18,6 +18,7 @@ public sealed class RoundView : MonoBehaviour
     private IArenaView _renderer;
     private GameSounds _sounds;
     private bool _threeD;
+    private ArenaTheme _theme;
     private TouchControls _controls;
     private float _accumulator, _sinceUpdate;
     private bool _bombQueued, _detonateQueued;
@@ -68,13 +69,14 @@ public sealed class RoundView : MonoBehaviour
         v._controls.PadOnRight = settings.PadOnRight;
         v._controls.Scale = settings.ButtonScalePercent / 100f;
         v._threeD = settings.View3D;
+        v._theme = ArenaTheme.At(settings.Arena);
         Screen.sleepTimeout = SleepTimeout.NeverSleep; // no dimming mid-round
         return v;
     }
 
     private void Build()
     {
-        _renderer = ArenaView.Create(Game, _threeD);
+        _renderer = ArenaView.Create(Game, _threeD, _theme);
         _renderer.Follow(YourIndex);
         _sounds = new GameSounds(Game, YourIndex);
     }
@@ -174,7 +176,7 @@ public sealed class RoundView : MonoBehaviour
             bool alive = Game.Bombers[i].Alive;
             var old = GUI.color;
             GUI.color = new Color(1f, 1f, 1f, alive ? 1f : 0.4f);
-            GUI.DrawTexture(new Rect(x, u, 7 * u, 7 * u), HeroAvatars.Portrait(Players[i].Avatar), ScaleMode.ScaleToFit);
+            GUI.DrawTexture(new Rect(x, u, 7 * u, 7 * u), PlayerAvatars.Portrait(Players[i].Avatar), ScaleMode.ScaleToFit);
             GUI.DrawTexture(new Rect(x + 7.5f * u, 2 * u, 5 * u, 5 * u), PalaceSprites.Bomber(i).texture, ScaleMode.ScaleToFit);
             GUI.Label(new Rect(x + 13 * u, u, 26 * u, 7 * u), Players[i].Nickname + (alive ? "" : "  " + Text.Out), Ui.Small);
             GUI.color = old;

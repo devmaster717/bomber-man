@@ -1,0 +1,29 @@
+Textures from ambientCG (https://ambientcg.com), released under CC0 1.0 (public domain).
+Resized and repacked for the game (colour, normal, metallic/smoothness).
+
+Palace
+  Floor      Tiles074
+  Marble     Marble016
+  Stone      Bricks008
+  Wood       WoodFloor043
+  Gold       Metal048A
+  Carpet     Fabric026
+
+Three Kingdoms fortress
+  Paving     PavingStones128
+  Brick      Bricks061
+  Earth      Ground103
+
+Classic garden
+  Lawn       Grass005
+  Rock       Rock058
+  Plaster    Plaster002
+  Roof       RoofingTiles015A
+  Bamboo     Bamboo001A
+  Pebbles    Gravel023
+
+Frozen citadel
+  Ice        Ice002
+  Snow       Snow014
+
+The Fx_ textures (flame, ring, soft dot, sparkle) are drawn by the game's own tools.

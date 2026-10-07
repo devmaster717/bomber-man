@@ -303,7 +303,7 @@ public sealed class BattleScreens
         {
             var r = new Rect(w * 0.25f, (22 + i * 13) * u, w * 0.5f, 12 * u);
             GUI.Box(r, GUIContent.none);
-            GUI.DrawTexture(new Rect(r.x + u, r.y + u, 10 * u, 10 * u), HeroAvatars.Portrait(players[i].Avatar), ScaleMode.ScaleToFit);
+            GUI.DrawTexture(new Rect(r.x + u, r.y + u, 10 * u, 10 * u), PlayerAvatars.Portrait(players[i].Avatar), ScaleMode.ScaleToFit);
             // The bomber this player controls in the round.
             GUI.DrawTexture(new Rect(r.xMax - 9 * u, r.y + 2 * u, 8 * u, 8 * u), PalaceSprites.Bomber(i).texture, ScaleMode.ScaleToFit);
             GUI.Label(new Rect(r.x + 13 * u, r.y, r.width - 23 * u, r.height), players[i].Nickname + (i == 0 ? "  (" + Text.HostLabel + ")" : ""), Ui.Label);

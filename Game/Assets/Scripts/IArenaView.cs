@@ -20,6 +20,10 @@ public interface IArenaView
 
 public static class ArenaView
 {
-    public static IArenaView Create(Game game, bool threeD) =>
-        threeD ? new ArenaRenderer3D(game) : (IArenaView)new ArenaRenderer(game);
+    /// <summary>A view of <paramref name="game"/> in <paramref name="theme"/>, which becomes the current theme.</summary>
+    public static IArenaView Create(Game game, bool threeD, ArenaTheme theme)
+    {
+        ArenaTheme.Current = theme;
+        return threeD ? new ArenaRenderer3D(game) : (IArenaView)new ArenaRenderer(game);
+    }
 }

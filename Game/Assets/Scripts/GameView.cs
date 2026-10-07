@@ -21,6 +21,7 @@ public sealed class GameView : MonoBehaviour
     private IArenaView _renderer;
     private GameSounds _sounds;
     private bool _threeD;
+    private ArenaTheme _theme;
     private TouchControls _controls;
     private float _accumulator;
     private bool _bombQueued, _detonateQueued, _finishedRaised;
@@ -44,19 +45,21 @@ public sealed class GameView : MonoBehaviour
     }
 
     /// <summary>
-    /// Settings that matter in play: the control layout (joystick or D-pad, button size, left-handed mirror) and the
-    /// 2D or 3D view, which can be switched mid-attempt from the pause menu.
+    /// Settings that matter in play: the control layout (joystick or D-pad, button size, pad side), the 2D or 3D view
+    /// and the arena's theme; the view and theme can be switched mid-attempt from the pause menu.
     /// </summary>
     public void ApplySettings(PlayerProfile settings)
     {
         _controls.UseJoystick = settings.UseJoystick;
         _controls.PadOnRight = settings.PadOnRight;
         _controls.Scale = settings.ButtonScalePercent / 100f;
-        if (_renderer == null || _threeD != settings.View3D)
+        var theme = ArenaTheme.At(settings.Arena);
+        if (_renderer == null || _threeD != settings.View3D || _theme != theme)
         {
             _renderer?.Destroy();
             _threeD = settings.View3D;
-            _renderer = ArenaView.Create(Game, _threeD);
+            _theme = theme;
+            _renderer = ArenaView.Create(Game, _threeD, _theme);
             _renderer.Follow(0);
         }
     }

@@ -22,8 +22,9 @@ public static class Previews
         foreach (bool threeD in new[] { true, false })
         {
             string suffix = threeD ? "3d" : "2d";
-            Capture(StageScene(), threeD, 0, $"Builds/preview-stage-{suffix}.png");
-            Capture(RoundScene(), threeD, 1, $"Builds/preview-round-{suffix}.png");
+            foreach (var theme in ArenaTheme.All)
+                Capture(StageScene(), threeD, 0, theme, $"Builds/preview-{theme.Key}-stage-{suffix}.png");
+            Capture(RoundScene(), threeD, 1, ArenaTheme.Palace, $"Builds/preview-round-{suffix}.png");
         }
     }
 
@@ -33,7 +34,7 @@ public static class Previews
         PalaceSetup.Run();
         EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
         var root = new GameObject("Test").transform;
-        var names = new[] { "Stone", "Wood", "Gold", "Marble", "Floor" };
+        var names = new[] { "Paving", "Brick", "Earth", "Lawn", "Rock", "Plaster", "Roof", "Bamboo", "Pebbles", "Ice", "Snow", "Bronze", "Silver", "Lacquer" };
         for (int i = 0; i < names.Length; i++)
         {
             var m = PalaceArt.Mat(names[i]);
@@ -53,7 +54,7 @@ public static class Previews
         }
         PalaceArt.Light();
         var camera = Camera.main;
-        camera.transform.SetPositionAndRotation(new Vector3(2.4f, 6f, -5.5f), Quaternion.Euler(50f, 0f, 0f));
+        camera.transform.SetPositionAndRotation(new Vector3(7.8f, 11f, -9.5f), Quaternion.Euler(50f, 0f, 0f));
         camera.clearFlags = CameraClearFlags.SolidColor;
         camera.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
         camera.aspect = (float)Width / Height;
@@ -92,12 +93,12 @@ public static class Previews
         return g;
     }
 
-    private static void Capture(Game game, bool threeD, int follow, string path)
+    private static void Capture(Game game, bool threeD, int follow, ArenaTheme theme, string path)
     {
         var before = new System.Collections.Generic.HashSet<GameObject>(SceneManager.GetActiveScene().GetRootGameObjects());
         // The 3D view tunes shadows at runtime; in the editor that would be saved into the project's quality settings.
         float shadowDistance = QualitySettings.shadowDistance;
-        var view = ArenaView.Create(game, threeD);
+        var view = ArenaView.Create(game, threeD, theme);
         var camera = Camera.main;
         camera.aspect = (float)Width / Height; // the picture's shape, not the editor window's
         view.OnTick();

@@ -140,7 +140,7 @@ public class WalletTests
     [Test]
     public void Profile_round_trips_through_its_save_format()
     {
-        var p = new PlayerProfile { Jewels = 1234, Lives = 13, Nickname = "Sasha", Avatar = 3, PadOnRight = true, View3D = false };
+        var p = new PlayerProfile { Jewels = 1234, Lives = 13, Nickname = "Sasha", Avatar = 3, PadOnRight = true, View3D = false, Arena = 2 };
         p.BestStars[1] = 3; p.BestStars[2] = 1;
         p.ThreeStarBonusPaid.Add(1);
         p.OwnedAvatars.Add(0); p.OwnedAvatars.Add(3);
@@ -152,6 +152,7 @@ public class WalletTests
         Assert.That(q.CarriedPowerUps.BombUps, Is.EqualTo(2));
         Assert.That(q.Inventory.RemoteControl);
         Assert.That(q.View3D, Is.False);
+        Assert.That(q.Arena, Is.EqualTo(2));
     }
 
     [Test]
@@ -170,5 +171,6 @@ public class WalletTests
         Assert.That(p.Jewels, Is.EqualTo(50));
         Assert.That(p.Lives, Is.EqualTo(PlayerProfile.StartingLives), "a garbled number keeps its default");
         Assert.That(p.View3D, Is.True, "saves from before the 3D view open in 3D");
+        Assert.That(PlayerProfile.Parse("arena = x\n").Arena, Is.EqualTo(0), "a garbled arena keeps the palace");
     }
 }
