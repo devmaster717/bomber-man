@@ -10,9 +10,11 @@ public static class GraphicsQuality
 {
     public static bool High { get; private set; } = true;
 
-    /// <summary>A guess at what the phone can handle: enough memory, cores and graphics memory for High.</summary>
-    public static bool SuitsDevice =>
-        SystemInfo.systemMemorySize >= 3000 && SystemInfo.processorCount >= 4 && SystemInfo.graphicsMemorySize >= 512;
+    /// <summary>
+    /// A guess at what the phone can handle: High with 3 GB of memory and 4 cores. (The graphics memory Android
+    /// reports is unreliable, so it isn't used.)
+    /// </summary>
+    public static bool SuitsDevice => SystemInfo.systemMemorySize >= 3000 && SystemInfo.processorCount >= 4;
 
     public static void Apply(bool high)
     {

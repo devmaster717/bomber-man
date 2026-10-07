@@ -210,7 +210,12 @@ public sealed class AppController : MonoBehaviour
         switch (_page)
         {
             case Page.Setup: DrawSetup(); break;
-            case Page.Home: DrawHome(); break;
+            case Page.Home:
+                // Behind the quit question Home is shown but can't be pressed (IMGUI gives a tap to the first control drawn).
+                GUI.enabled = !_confirmQuit;
+                DrawHome();
+                GUI.enabled = true;
+                break;
             case Page.StageSelect: DrawStageSelect(); break;
             case Page.Playing: DrawPauseButton(); break;
             case Page.Paused: DrawPauseMenu(); break;
