@@ -265,7 +265,7 @@ public sealed class AppController : MonoBehaviour
         _wallet.Refresh();
         string lives = _wallet.Lives.ToString();
         if (_wallet.SecondsToNextLife is long s) lives += "  " + Text.NextLifeIn(Ui.Clock(s));
-        Ui.IconRow(new Rect(0, Ui.U, Ui.W, 7 * Ui.U), Ui.Label, (Ui.Ruby, _wallet.Jewels.ToString()), (Ui.Heart, lives));
+        Ui.IconRow(new Rect(0, Ui.U, Ui.W, 7 * Ui.U), Ui.Numbers, (Ui.Jewel, _wallet.Jewels.ToString()), (Ui.Heart, lives));
     }
 
     /// <summary>First launch: choose a nickname and a free starting avatar.</summary>
@@ -359,12 +359,12 @@ public sealed class AppController : MonoBehaviour
             if (n > StageLibrary.Count) break;
             var r = new Rect(left + (i % cols) * cellW + u, top + (i / cols) * (cellH + u), cellW - 2 * u, cellH);
             bool open = _progress.IsUnlocked(n);
-            // The number above the best result: three stars, gold for each one earned (or "locked").
-            string label = n + System.Environment.NewLine + (open ? " " : Text.Locked);
+            // The number above the best result (three stars, gold for each one earned) or a padlock.
             GUI.enabled = open;
-            if (GUI.Button(r, label, Ui.Button)) StartAttempt(n);
+            if (GUI.Button(r, n + System.Environment.NewLine + " ", Ui.NumberButton)) StartAttempt(n);
             GUI.enabled = true;
             if (open) DrawStars(r, _progress.BestStars(n));
+            else DrawLock(r);
         }
 
         float by = top + rows * (cellH + u) + 2 * u, bw = 22 * u;
@@ -375,6 +375,16 @@ public sealed class AppController : MonoBehaviour
         GUI.enabled = true;
         if (GUI.Button(new Rect((w - bw) / 2, by, bw, 10 * u), Text.Home, Ui.Button)) _page = Page.Home;
         GUI.Label(new Rect(0, by + 10 * u, w, 6 * u), Text.StageRange(first, Mathf.Min(first + StagesPerPage - 1, StageLibrary.Count)), Ui.Small);
+    }
+
+    // A padlock in the lower half of a locked stage's button, dimmed with it.
+    private static void DrawLock(Rect button)
+    {
+        float size = button.height * 0.42f;
+        var old = GUI.color;
+        GUI.color = new Color(1f, 1f, 1f, 0.75f);
+        GUI.DrawTexture(new Rect(button.center.x - size / 2f, button.y + button.height * 0.48f, size, size), Ui.Lock, ScaleMode.ScaleToFit);
+        GUI.color = old;
     }
 
     // Three stars in the lower half of a stage button.

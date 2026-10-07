@@ -16,12 +16,29 @@ public static class Ui
     private static readonly Color NavyTop = new Color(0.11f, 0.17f, 0.30f), NavyBottom = new Color(0.04f, 0.07f, 0.15f);
 
     private static GUISkin _skin;
-    private static GUIStyle _button, _label, _title, _panel, _small, _smallButton, _field, _hud, _control;
+    private static GUIStyle _button, _label, _title, _panel, _small, _smallButton, _field, _hud, _control, _numbers, _numberButton;
     private static int _sizedFor;
-    private static Font _body, _display;
+    private static Font _body, _display, _figures;
 
-    /// <summary>The layout canvas in screen (GUI) pixels: the safe area, cut to 16:10 if it is squarer.</summary>
-    public static Rect Canvas
+    /// <summary>
+    /// The layout canvas in screen (GUI) pixels: the safe area, cut to 16:10 if it is squarer. On the menu backdrop
+    /// (after <see cref="Backdrop"/>) it is the area inside the gold frame, a margin in from it, so nothing sits on the
+    /// frame's lines.
+    /// </summary>
+    public static Rect Canvas => _framed ? Inside(SafeCanvas) : SafeCanvas;
+
+    // The space between the canvas's edge and what is laid out inside the frame, as a share of the canvas's height.
+    private const float FrameMargin = 0.05f;
+    private static bool _framed;
+
+    private static Rect Inside(Rect r)
+    {
+        float m = r.height * FrameMargin;
+        return new Rect(r.x + m, r.y + m, r.width - 2 * m, r.height - 2 * m);
+    }
+
+    // The safe area, cut to 16:10 if squarer: the frame is drawn around it.
+    private static Rect SafeCanvas
     {
         get
         {
@@ -41,12 +58,17 @@ public static class Ui
     public static float H => Canvas.height;
     public static float U => H / 100f;
 
+    // Text is sized for the framed canvas on every screen, so it is the same size framed or not and the styles are
+    // made once per screen size, not each time a screen switches between the two.
+    private static float TextU => Inside(SafeCanvas).height / 100f;
+
     /// <summary>
     /// Use the palace skin for this OnGUI pass and draw on the canvas (its origin is the canvas's corner). Pass false
     /// to draw in raw screen coordinates (the touch controls, which hit-test real touches).
     /// </summary>
     public static void Begin(bool onCanvas = true)
     {
+        _framed = false;
         Ensure();
         GUI.skin = _skin;
         var c = Canvas;
@@ -64,17 +86,21 @@ public static class Ui
 
     private static void Ensure()
     {
-        if (_skin != null && _sizedFor == (int)H) return;
-        _sizedFor = (int)H;
+        if (_skin != null && _sizedFor == (int)SafeCanvas.height) return;
+        _sizedFor = (int)SafeCanvas.height;
         _body ??= Resources.Load<Font>("Palace/Fonts/Marcellus-Regular");
         _display ??= Resources.Load<Font>("Palace/Fonts/CinzelDecorative-Bold");
-        float u = U;
+        _figures ??= Resources.Load<Font>("Palace/Fonts/Cinzel-SemiBold");
+        float u = TextU;
 
         _button = Framed(Textures.ButtonNormal, Textures.ButtonHover, Textures.ButtonActive, (int)(4.6f * u));
         _smallButton = Framed(Textures.ButtonNormal, Textures.ButtonHover, Textures.ButtonActive, (int)(3.4f * u));
+        _numberButton = new GUIStyle(_button) { font = _figures, fontSize = (int)(4.2f * u) };
         _label = new GUIStyle { font = _body, fontSize = (int)(4.4f * u), alignment = TextAnchor.MiddleCenter, wordWrap = true, richText = false };
         _label.normal.textColor = Cream;
         _small = new GUIStyle(_label) { fontSize = (int)(3.4f * u) };
+        // Marcellus draws zero as a circle like the letter O; counts use Cinzel's figures instead.
+        _numbers = new GUIStyle(_label) { font = _figures, fontSize = (int)(4.2f * u), wordWrap = false };
         _title = new GUIStyle(_label) { font = _display, fontSize = (int)(8.5f * u), wordWrap = false };
         _title.normal.textColor = Gold;
         _panel = new GUIStyle { border = new RectOffset(18, 18, 18, 18) };
@@ -130,20 +156,29 @@ public static class Ui
     public static GUIStyle Field { get { Ensure(); return _field; } }
     public static GUIStyle Hud { get { Ensure(); return _hud; } }
 
+    /// <summary>Counts such as jewels and lives, in Cinzel's lining figures.</summary>
+    public static GUIStyle Numbers { get { Ensure(); return _numbers; } }
+
+    /// <summary>A button labelled with a number (the stage buttons), in Cinzel's figures.</summary>
+    public static GUIStyle NumberButton { get { Ensure(); return _numberButton; } }
+
     /// <summary>The round, gold-ringed style of the on-screen controls.</summary>
     public static GUIStyle Control { get { Ensure(); return _control; } }
 
     public static Texture2D Arrow => Textures.Arrow;
     public static Texture2D AvatarRing => Textures.Ring;
 
-    /// <summary>A cut ruby: the jewels icon.</summary>
-    public static Texture2D Ruby => Textures.Ruby;
+    /// <summary>A cut emerald: the jewels icon.</summary>
+    public static Texture2D Jewel => Textures.Jewel;
 
     /// <summary>A glossy red heart: the lives icon.</summary>
     public static Texture2D Heart => Textures.Heart;
 
     /// <summary>A gold star for a star earned, or an empty star slot for one not yet earned.</summary>
     public static Texture2D Star(bool earned) => earned ? Textures.Star : Textures.StarEmpty;
+
+    /// <summary>A gold padlock: a stage not unlocked yet.</summary>
+    public static Texture2D Lock => Textures.Lock;
 
     /// <summary>
     /// Draws icon-and-text pairs side by side, centred in <paramref name="row"/> (icons a little taller than the
@@ -167,21 +202,29 @@ public static class Ui
         }
     }
 
-    /// <summary>The menu backdrop: deep navy lit from the centre, a faint gold lattice, and a double gold frame.</summary>
+    /// <summary>
+    /// The menu backdrop: deep navy lit from the centre, a faint gold lattice, and a double gold frame. Everything
+    /// drawn after it is laid out inside the frame (see <see cref="Canvas"/>).
+    /// </summary>
     public static void Backdrop()
     {
         Ensure();
+        var outer = SafeCanvas;
+        float u = outer.height / 100f;
         FullScreen(() =>
         {
             var screen = new Rect(0, 0, Screen.width, Screen.height);
             GUI.DrawTexture(screen, Textures.Radial, ScaleMode.StretchToFill);
-            float tile = 9f * U;
+            float tile = 9f * u;
             GUI.DrawTextureWithTexCoords(screen, Textures.Lattice, new Rect(0, 0, Screen.width / tile, Screen.height / tile));
+            // The gold frame follows the safe area, so it stays clear of notches.
+            float m = 1.6f * u;
+            Frame(new Rect(outer.x + m, outer.y + m, outer.width - 2 * m, outer.height - 2 * m), Mathf.Max(2f, 0.3f * u), Gold);
+            Frame(new Rect(outer.x + m * 1.6f, outer.y + m * 1.6f, outer.width - 3.2f * m, outer.height - 3.2f * m), 1f, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
         });
-        // The gold frame follows the canvas, so it stays clear of notches.
-        float m = 1.6f * U;
-        Frame(new Rect(m, m, W - 2 * m, H - 2 * m), Mathf.Max(2f, 0.3f * U), Gold);
-        Frame(new Rect(m * 1.6f, m * 1.6f, W - 3.2f * m, H - 3.2f * m), 1f, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
+        _framed = true;
+        var c = Canvas;
+        GUI.matrix = Matrix4x4.Translate(new Vector3(c.x, c.y, 0f));
     }
 
     /// <summary>Covers the whole screen in navy at the given opacity (screen transitions).</summary>
@@ -268,11 +311,12 @@ public static class Ui
         public static readonly Texture2D HudFade = Fade(4, 64);
         // Painted on first use, not with the fields above: static fields initialise in source order, and the shapes
         // these read are declared further down.
-        private static Texture2D _ruby, _heart, _star, _starEmpty;
-        public static Texture2D Ruby => _ruby != null ? _ruby : _ruby = Paint(96, RubyAt);
+        private static Texture2D _jewel, _heart, _star, _starEmpty, _lock;
+        public static Texture2D Jewel => _jewel != null ? _jewel : _jewel = Paint(96, JewelAt);
         public static Texture2D Heart => _heart != null ? _heart : _heart = Paint(96, HeartAt);
         public static Texture2D Star => _star != null ? _star : _star = Paint(96, p => StarAt(p, true));
         public static Texture2D StarEmpty => _starEmpty != null ? _starEmpty : _starEmpty = Paint(96, p => StarAt(p, false));
+        public static Texture2D Lock => _lock != null ? _lock : _lock = Paint(96, LockAt);
 
         /// <summary>
         /// An icon drawn from a function of the point (0..1 across, 0..1 down) that returns its colour, sampled 4 x 4
@@ -323,24 +367,24 @@ public static class Ui
             return Vector2.Distance(p, a + ab * t);
         }
 
-        // ---- the ruby (jewels): a cut gem seen from the side, crown on top and pavilion below ----
+        // ---- the emerald (jewels): a cut gem seen from the side, crown on top and pavilion below ----
 
         private static readonly Vector2 GemA = new Vector2(0.08f, 0.38f), GemB = new Vector2(0.3f, 0.15f), GemC = new Vector2(0.7f, 0.15f),
             GemD = new Vector2(0.92f, 0.38f), GemE = new Vector2(0.5f, 0.9f), GemP = new Vector2(0.35f, 0.38f), GemQ = new Vector2(0.65f, 0.38f);
 
         private static readonly (Vector2[] facet, Color colour)[] GemFacets =
         {
-            (new[] { GemB, GemC, GemQ, GemP }, new Color(1f, 0.5f, 0.56f)),    // table, catching the light
-            (new[] { GemA, GemB, GemP }, new Color(0.96f, 0.26f, 0.36f)),      // crown, left
-            (new[] { GemC, GemD, GemQ }, new Color(0.84f, 0.1f, 0.2f)),        // crown, right
-            (new[] { GemA, GemP, GemE }, new Color(0.78f, 0.06f, 0.17f)),      // pavilion, left
-            (new[] { GemP, GemQ, GemE }, new Color(0.9f, 0.14f, 0.24f)),       // pavilion, centre
-            (new[] { GemQ, GemD, GemE }, new Color(0.5f, 0.02f, 0.1f)),        // pavilion, right, in shadow
+            (new[] { GemB, GemC, GemQ, GemP }, new Color(0.56f, 1f, 0.72f)),   // table, catching the light
+            (new[] { GemA, GemB, GemP }, new Color(0.24f, 0.86f, 0.5f)),       // crown, left
+            (new[] { GemC, GemD, GemQ }, new Color(0.06f, 0.6f, 0.32f)),       // crown, right
+            (new[] { GemA, GemP, GemE }, new Color(0.05f, 0.52f, 0.27f)),      // pavilion, left
+            (new[] { GemP, GemQ, GemE }, new Color(0.12f, 0.7f, 0.38f)),       // pavilion, centre
+            (new[] { GemQ, GemD, GemE }, new Color(0.02f, 0.32f, 0.16f)),      // pavilion, right, in shadow
         };
 
         private static readonly Vector2[] GemOutline = { GemA, GemB, GemC, GemD, GemE };
 
-        private static Color RubyAt(Vector2 p)
+        private static Color JewelAt(Vector2 p)
         {
             if (!Inside(p, GemOutline)) return Clear;
             var c = GemFacets[0].colour;
@@ -351,8 +395,8 @@ public static class Ui
             foreach (var (facet, _) in GemFacets)
                 for (int i = 0; i < facet.Length; i++) inner = Mathf.Min(inner, SegmentDistance(p, facet[i], facet[(i + 1) % facet.Length]));
             for (int i = 0; i < GemOutline.Length; i++) outer = Mathf.Min(outer, SegmentDistance(p, GemOutline[i], GemOutline[(i + 1) % GemOutline.Length]));
-            c = Color.Lerp(c, new Color(1f, 0.75f, 0.78f), 0.55f * Mathf.Clamp01(1f - inner / 0.012f));
-            c = Color.Lerp(c, new Color(0.3f, 0f, 0.05f), Mathf.Clamp01(1f - (outer - 0.012f) / 0.012f));
+            c = Color.Lerp(c, new Color(0.8f, 1f, 0.86f), 0.55f * Mathf.Clamp01(1f - inner / 0.012f));
+            c = Color.Lerp(c, new Color(0f, 0.17f, 0.08f), Mathf.Clamp01(1f - (outer - 0.012f) / 0.012f));
             // A four-pointed sparkle on the table.
             var d = p - new Vector2(0.38f, 0.25f);
             float sparkle = Mathf.Clamp01(1f - (Mathf.Abs(d.x) * Mathf.Abs(d.y) * 900f + d.magnitude * 9f));
@@ -414,6 +458,38 @@ public static class Ui
             var c = Color.Lerp(new Color(0.78f, 0.5f, 0.1f), new Color(1f, 0.92f, 0.58f), Mathf.Clamp01(light * 0.6f + 0.5f));
             c = Color.Lerp(c, new Color(0.42f, 0.26f, 0.04f), Mathf.Clamp01(1f - (outline - 0.012f) / 0.012f));
             return c;
+        }
+
+        // ---- the padlock (locked stages): a gold body with a keyhole under a steel shackle ----
+
+        private static Color LockAt(Vector2 p)
+        {
+            // Body: a rounded rectangle; shackle: the top half of a ring, with straight legs down into the body.
+            var centre = new Vector2(0.5f, 0.66f);
+            var half = new Vector2(0.3f, 0.23f);
+            var q = new Vector2(Mathf.Abs(p.x - centre.x) - (half.x - 0.07f), Mathf.Abs(p.y - centre.y) - (half.y - 0.07f));
+            float body = new Vector2(Mathf.Max(q.x, 0f), Mathf.Max(q.y, 0f)).magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0f) - 0.07f;
+
+            var ring = new Vector2(0.5f, 0.42f);
+            float shackle = p.y <= ring.y
+                ? Mathf.Abs(Vector2.Distance(p, ring) - 0.19f) - 0.05f
+                : p.y < 0.5f ? Mathf.Abs(Mathf.Abs(p.x - ring.x) - 0.19f) - 0.05f : 1f;
+            if (body > 0f && shackle > 0f) return Clear;
+
+            if (body > 0f)
+            {
+                // Steel shackle, lit along its middle, with a dark edge.
+                float across = Mathf.Clamp01(-shackle / 0.05f);
+                var steel = Color.Lerp(new Color(0.55f, 0.58f, 0.64f), new Color(0.93f, 0.95f, 0.98f), across);
+                return Color.Lerp(steel, new Color(0.2f, 0.22f, 0.27f), Mathf.Clamp01(1f - (-shackle) / 0.012f));
+            }
+
+            // Gold body, lighter at the top, with a dark rim and a keyhole.
+            var c = Color.Lerp(new Color(1f, 0.9f, 0.55f), new Color(0.74f, 0.48f, 0.1f), Mathf.Clamp01((p.y - 0.43f) / 0.46f));
+            float hole = Mathf.Min(Vector2.Distance(p, new Vector2(0.5f, 0.62f)) - 0.055f,
+                Mathf.Max(Mathf.Abs(p.x - 0.5f) - 0.025f - (p.y - 0.62f) * 0.12f, Mathf.Abs(p.y - 0.7f) - 0.08f));
+            c = Color.Lerp(c, new Color(0.18f, 0.1f, 0.02f), Mathf.Clamp01(0.5f - hole * 96f));
+            return Color.Lerp(c, new Color(0.42f, 0.26f, 0.04f), Mathf.Clamp01(1f - (-body - 0.012f) / 0.012f));
         }
 
         private static Texture2D New(int w, int h, TextureWrapMode wrap = TextureWrapMode.Clamp) =>
