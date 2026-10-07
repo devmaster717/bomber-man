@@ -43,7 +43,7 @@ public static class Builds
         PlayerSettings.stripEngineCode = false;
 
         EditorUserBuildSettings.buildAppBundle = false;
-        IncludeShaders("Legacy Shaders/Diffuse", "Legacy Shaders/Transparent/Diffuse", "Unlit/Texture");
+        PalaceSetup.Run();
         EnsureScene();
         AssetDatabase.SaveAssets();
     }
@@ -66,28 +66,6 @@ public static class Builds
         });
         Debug.Log($"BUILD RESULT: {report.summary.result} -> {ApkPath} ({report.summary.totalErrors} errors)");
         return report.summary.result == BuildResult.Succeeded;
-    }
-
-    /// <summary>
-    /// The 3D view makes its materials in code, so nothing in the project references their shaders and the build
-    /// would leave them out; list them as always included.
-    /// </summary>
-    private static void IncludeShaders(params string[] names)
-    {
-        var settings = new SerializedObject(AssetDatabase.LoadAssetAtPath<GraphicsSettings>("ProjectSettings/GraphicsSettings.asset"));
-        var list = settings.FindProperty("m_AlwaysIncludedShaders");
-        foreach (var name in names)
-        {
-            var shader = Shader.Find(name);
-            if (shader == null) { Debug.LogError("Shader not found: " + name); continue; }
-            bool listed = false;
-            for (int i = 0; i < list.arraySize; i++)
-                listed |= list.GetArrayElementAtIndex(i).objectReferenceValue == shader;
-            if (listed) continue;
-            list.InsertArrayElementAtIndex(list.arraySize);
-            list.GetArrayElementAtIndex(list.arraySize - 1).objectReferenceValue = shader;
-        }
-        settings.ApplyModifiedProperties();
     }
 
     /// <summary>The main scene holds the camera and the AppController (which builds everything else).</summary>

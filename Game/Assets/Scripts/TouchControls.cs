@@ -128,7 +128,9 @@ public sealed class TouchControls : MonoBehaviour
 
     private void OnGUI()
     {
-        _style ??= new GUIStyle(GUI.skin.box) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+        Ui.Begin();
+        // Round, gold-ringed buttons from the palace skin; a copy, since font sizes change here.
+        _style ??= new GUIStyle(Ui.Control);
         var old = GUI.color;
 
         if (UseJoystick)
@@ -145,10 +147,17 @@ public sealed class TouchControls : MonoBehaviour
         else
         {
             _style.fontSize = (int)(Unit * 0.45f);
-            foreach (var (d, label) in new[] { (Direction.Up, "^"), (Direction.Down, "v"), (Direction.Left, "<"), (Direction.Right, ">") })
+            foreach (var (d, angle) in new[] { (Direction.Up, 0f), (Direction.Right, 90f), (Direction.Down, 180f), (Direction.Left, 270f) })
             {
-                GUI.color = new Color(1f, 1f, 1f, Held == d ? 0.9f : 0.45f);
-                GUI.Box(DpadRect(d), label, _style);
+                var r = DpadRect(d);
+                GUI.color = new Color(1f, 1f, 1f, Held == d ? 0.95f : 0.55f);
+                GUI.Box(r, GUIContent.none, _style);
+                // A gold arrow, turned to point its way.
+                var matrix = GUI.matrix;
+                GUIUtility.RotateAroundPivot(angle, r.center);
+                GUI.color = new Color(Ui.Gold.r, Ui.Gold.g, Ui.Gold.b, Held == d ? 1f : 0.8f);
+                GUI.DrawTexture(new Rect(r.center.x - r.width * 0.22f, r.center.y - r.height * 0.22f, r.width * 0.44f, r.height * 0.44f), Ui.Arrow);
+                GUI.matrix = matrix;
             }
         }
 

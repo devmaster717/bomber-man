@@ -161,6 +161,12 @@ public sealed class AppController : MonoBehaviour
 
     private void OnGUI()
     {
+        Ui.Begin();
+        // Menus sit on the palace backdrop; in play (and its pause, results and settings) the arena shows instead.
+        bool arenaShowing = _page is Page.Playing or Page.Paused or Page.Results
+            || (_page == Page.Settings && _settingsReturn == Page.Paused)
+            || (_page == Page.Bluetooth && _battle.InRound);
+        if (!arenaShowing) Ui.Backdrop();
         switch (_page)
         {
             case Page.Setup: DrawSetup(); break;
@@ -190,7 +196,7 @@ public sealed class AppController : MonoBehaviour
         float w = Screen.width, u = Ui.U;
         GUI.Label(new Rect(0, 4 * u, w, 12 * u), Text.Welcome, Ui.Title);
         GUI.Label(new Rect(0, 17 * u, w, 7 * u), Text.ChooseNickname(PlayerProfile.MaxNicknameLength), Ui.Label);
-        _nicknameDraft = GUI.TextField(new Rect(w * 0.3f, 25 * u, w * 0.4f, 10 * u), _nicknameDraft, PlayerProfile.MaxNicknameLength, Ui.Button);
+        _nicknameDraft = GUI.TextField(new Rect(w * 0.3f, 25 * u, w * 0.4f, 10 * u), _nicknameDraft, PlayerProfile.MaxNicknameLength, Ui.Field);
 
         GUI.Label(new Rect(0, 38 * u, w, 7 * u), Text.PickLookFree, Ui.Label);
         DrawAvatarRow(46 * u, ref _setupAvatar, i => true);
@@ -230,6 +236,7 @@ public sealed class AppController : MonoBehaviour
         DrawWalletBar();
         float u = Ui.U;
         GUI.DrawTexture(new Rect(3 * u, 2 * u, 10 * u, 10 * u), PlaceholderSprites.Avatar(_profile.Avatar).texture, ScaleMode.ScaleToFit);
+        GUI.DrawTexture(new Rect(2.4f * u, 1.4f * u, 11.2f * u, 11.2f * u), Ui.AvatarRing, ScaleMode.ScaleToFit);
         GUI.Label(new Rect(14 * u, 2 * u, 40 * u, 10 * u), _profile.Nickname, Ui.Small);
         var col = new Ui.Column(new Rect(Screen.width * 0.3f, Screen.height * 0.12f, Screen.width * 0.4f, Screen.height * 0.88f), 0f);
         GUI.Label(col.Next(14), Text.GameTitle, Ui.Title);
@@ -375,7 +382,7 @@ public sealed class AppController : MonoBehaviour
         // Right column: nickname.
         float rx = w * 0.52f, rw = w * 0.44f;
         GUI.Label(new Rect(rx, 13 * u, rw, 7 * u), Text.Nickname, Ui.Label);
-        _nicknameDraft = GUI.TextField(new Rect(rx, 22 * u, rw, 10 * u), _nicknameDraft, PlayerProfile.MaxNicknameLength, Ui.Button);
+        _nicknameDraft = GUI.TextField(new Rect(rx, 22 * u, rw, 10 * u), _nicknameDraft, PlayerProfile.MaxNicknameLength, Ui.Field);
         if (PlayerProfile.IsValidNickname(_nicknameDraft)) _profile.Nickname = PlayerProfile.CleanNickname(_nicknameDraft);
 
         // The arena view: the new 3D one or the original flat 2D one.

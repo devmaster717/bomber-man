@@ -32,6 +32,9 @@ public sealed class BattleScreens
     private long _fee;
     private long _payout;
     private Step _step = Step.Menu;
+
+    /// <summary>True while a round is being played (or its result shown) over the arena.</summary>
+    public bool InRound => _step == Step.Playing;
     private string _status;
     private bool _permissionsOk;
 

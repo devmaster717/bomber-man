@@ -154,6 +154,8 @@ public sealed class RoundView : MonoBehaviour
 
     private void OnGUI()
     {
+        Ui.Begin();
+        Ui.HudBar(0.14f);
         // Each player's avatar, their bomber, nickname and whether they are still in.
         float u = Ui.U, x = 2 * u;
         for (int i = 0; i < Players.Count; i++)
