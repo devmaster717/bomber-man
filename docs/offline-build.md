@@ -36,10 +36,11 @@ after upgrading Unity.
 Tools/Pack-Offline.ps1
 ```
 
-It exports the committed source (no `Library` or build output, about 21 MB), adds `Tools/offline-maven` and the
-specification and offline build guide (the `Bomb Arena — ….docx` files next to the project folder), and zips it all
-as `BombArena-offline.zip` next to the project folder. `-History` adds the Git history as a bundle. The full,
-illustrated steps, including the Unity license, are in `Bomb Arena — Offline Build Guide.docx`.
+It clones the repository into the package (`.git` with the full history, the committed files checked out, no
+`Library` or build output: about 45 MB), adds `Tools/offline-maven` and the specification and offline build guide (the
+`Bomb Arena — ….docx` files next to the project folder), and zips it all as `BombArena-offline.zip` next to the
+project folder. The full, illustrated steps, including the Unity license, are in `Bomb Arena — Offline Build
+Guide.docx`.
 
 ## Building
 
