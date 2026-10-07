@@ -30,6 +30,17 @@ It builds the app's Gradle project once with an empty cache and stores everythin
 `Tools/offline-maven`. Copy that folder into the same place in the offline PC's copy of the repository. Run it again
 after upgrading Unity.
 
+## Packing it for the offline PC
+
+```
+Tools/Pack-Offline.ps1
+```
+
+It exports the committed source (no `Library` or build output, about 21 MB), adds `Tools/offline-maven` and the
+specification and offline build guide (the `Bomb Arena — ….docx` files next to the project folder), and zips it all
+as `BombArena-offline.zip` next to the project folder. `-History` adds the Git history as a bundle. The full,
+illustrated steps, including the Unity license, are in `Bomb Arena — Offline Build Guide.docx`.
+
 ## Building
 
 ```
