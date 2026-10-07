@@ -11,6 +11,7 @@ public sealed class BattleScreens
 {
     private enum Step
     {
+        Permission,
         Menu,
         Hosting,
         Scanning,
@@ -43,7 +44,8 @@ public sealed class BattleScreens
         Leave();
     }
     private string _status;
-    private bool _permissionsOk;
+    private bool _permissionsOk, _permissionDenied;
+    private int _framesSincePermissionCheck;
 
     /// <summary>Raised when the player leaves the Bluetooth screens.</summary>
     public event Action Exit;
@@ -61,14 +63,48 @@ public sealed class BattleScreens
         _bt ??= new BluetoothTransport();
         _bt.Error += m => { _status = m; _rejoining = false; };
         _bt.JoinedHost += OnJoinedHost;
-        BluetoothTransport.RequestPermissions(ok =>
-        {
-            _permissionsOk = ok;
-            if (!ok) _status = Text.BluetoothPermissionsNeeded;
-        });
+        // Explain why before Android asks for the permission (Google Play policy); skip it once granted.
+        _permissionsOk = BluetoothTransport.HasPermissions();
+        _step = _permissionsOk ? Step.Menu : Step.Permission;
     }
 
-    public void Update() => _bt?.Poll();
+    public void Update()
+    {
+        _bt?.Poll();
+        // Coming back from Android's settings with the permission allowed: carry on.
+        if (_step == Step.Permission && ++_framesSincePermissionCheck >= 30)
+        {
+            _framesSincePermissionCheck = 0;
+            if (BluetoothTransport.HasPermissions()) GrantedPermissions();
+        }
+    }
+
+    private void AskForPermissions() => BluetoothTransport.RequestPermissions(ok =>
+    {
+        if (ok) GrantedPermissions();
+        else
+        {
+            _permissionDenied = true;
+            _status = Text.BluetoothPermissionsNeeded;
+        }
+    });
+
+    private void GrantedPermissions()
+    {
+        _permissionsOk = true;
+        _permissionDenied = false;
+        _status = null;
+        _step = Step.Menu;
+    }
+
+    private void DrawPermission()
+    {
+        float w = Ui.W, u = Ui.U;
+        GUI.Label(new Rect(w * 0.15f, 16 * u, w * 0.7f, 30 * u), Text.PermissionWhy, Ui.Label);
+        if (GUI.Button(new Rect(w * 0.3f, 50 * u, w * 0.4f, 11 * u), Text.Continue, Ui.Button)) AskForPermissions();
+        if (_permissionDenied && GUI.Button(new Rect(w * 0.3f, 64 * u, w * 0.4f, 10 * u), Text.OpenAppSettings, Ui.SmallButton))
+            BluetoothTransport.OpenAppSettings();
+    }
 
     private PlayerInfo Me() => new PlayerInfo
     {
@@ -209,6 +245,7 @@ public sealed class BattleScreens
         {
             switch (_step)
             {
+                case Step.Permission: DrawPermission(); break;
                 case Step.Menu: DrawMenu(); break;
                 case Step.Hosting: DrawRoom(_host.Players, _host.Settings, isHost: true); break;
                 case Step.Scanning: DrawScan(); break;

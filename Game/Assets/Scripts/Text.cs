@@ -88,6 +88,11 @@ public static class Text
     public const string BluetoothUnavailable = "Bluetooth battles need an Android phone with Bluetooth.";
     public const string BluetoothOff = "Bluetooth is off.";
     public const string TurnOnBluetooth = "Turn on Bluetooth";
+    public const string PermissionWhy =
+        "Bluetooth battles find and connect to phones near you. For that, Android will ask to allow Nearby devices " +
+        "(on older phones, Location). It is only used while finding and connecting for a battle; your location is never read or stored.";
+    public const string Continue = "Continue";
+    public const string OpenAppSettings = "Open app settings";
     public const string BluetoothPermissionsNeeded = "Bomb Arena needs the Nearby devices permission to find other phones.";
     public const string HostRoom = "Host a room";
     public const string JoinRoom = "Join a room";
@@ -153,5 +158,34 @@ public static class Text
     public const string Avatar = "Avatar";
     public const string Back = "Back";
     public const string QuitGame = "Leave Bomb Arena?";
+    public const string PrivacyPolicy = "Privacy policy";
+
+    // How to play
+    public const string HowToPlay = "How to play";
+    public const string Done = "Done";
+    public const string Skip = "Skip";
+    public const string HowMoveTitle = "Move and bomb";
+    public const string HowMove = "Move with the pad (or joystick). Tap BOMB to drop a bomb: after 2.5 seconds it bursts into fire along its row and column. Fire stops at walls and pillars. Get out of the way!";
+    public const string HowExitTitle = "Crates and the exit";
+    public const string HowExit = "Fire breaks wooden crates. One crate in every stage hides the exit. Once every enemy is gone it opens: walk in to clear the stage. Careful: fire on the exit lets Runners out.";
+    public const string HowPowerTitle = "Power-ups";
+    public const string HowPower = "One crate per attempt hides a power-up. Fire Up: longer fire. Bomb Up: one more bomb at a time. Remote: your bombs wait until you tap DETONATE. Speed Up: faster for 60 seconds.";
+    public const string HowEnemiesTitle = "Enemies";
+    public const string HowEnemies = "Touching an enemy ends the attempt. Walkers are slower than you. Runners are twice as fast. Phantoms fade out and reappear elsewhere. Wall-passers glide through crates, where fire can't reach them.";
+    public const string HowLivesTitle = "Lives and stars";
+    public const string HowLives = "Each attempt needs a life, and only a failed one uses it up. Lives come back over time, or buy more in the Shop. Clear a stage fast for up to three stars and more jewels; finishing unlocks the next stage.";
+    public const string HowBattleTitle = "Bluetooth battles";
+    public const string HowBattle = "Two or three friends on nearby phones. One hosts a room, the others join. Everyone pays the entry fee; the last bomber standing wins the whole pot.";
+    public const string PrivacyText =
+        "Bomb Arena does not collect, send or sell any personal information.\n\n" +
+        "What is stored, and where\nYour nickname, avatar, jewels, lives, stage progress and settings are saved only on your phone, " +
+        "in the app's own storage. An error log, used only to look into problems, stays on the phone too. Uninstalling the app deletes all of it.\n\n" +
+        "Bluetooth battles\nBluetooth is used only to find nearby phones and play the battles you start. Nicknames, avatars and game " +
+        "moves travel directly between the phones in the room. Nothing is sent to the internet.\n\n" +
+        "Permissions\nNearby devices (Android 12 and later), or Location (Android 8 to 11, where Android requires it for Bluetooth " +
+        "discovery): used only while finding and connecting to other phones for a battle. Your location is never read or stored. " +
+        "Vibration: for game feedback, which you can turn off in Settings.\n\n" +
+        "What Bomb Arena does not do\nNo accounts, advertising, analytics or tracking.\n\n" +
+        "Purchases\nBuying jewels is not available yet. This policy will be updated before it is.";
     public const string Stay = "Stay";
 }

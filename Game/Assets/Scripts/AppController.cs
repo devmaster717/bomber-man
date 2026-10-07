@@ -19,6 +19,8 @@ public sealed class AppController : MonoBehaviour
         Shop,
         JewelPacks,
         Bluetooth,
+        Privacy,
+        HowToPlay,
     }
 
     private const int StagesPerPage = 20;
@@ -42,6 +44,7 @@ public sealed class AppController : MonoBehaviour
     private string _nicknameDraft = "";
     private int _setupAvatar;
     private bool _confirmQuit;
+    private readonly HowToPlay _howToPlay = new HowToPlay();
     private Page _shownPage;
     private float _pageShownAt;
 
@@ -89,6 +92,8 @@ public sealed class AppController : MonoBehaviour
             case Page.StageSelect:
             case Page.Shop: _page = Page.Home; break;
             case Page.JewelPacks: _page = Page.Shop; break;
+            case Page.Privacy: _page = Page.Settings; break;
+            case Page.HowToPlay: _page = Page.Home; break;
             case Page.Results:
                 CloseView();
                 _page = Page.StageSelect;
@@ -213,6 +218,8 @@ public sealed class AppController : MonoBehaviour
             case Page.Settings: DrawSettings(); break;
             case Page.Shop: DrawShop(); break;
             case Page.JewelPacks: DrawJewelPacks(); break;
+            case Page.Privacy: DrawPrivacy(); break;
+            case Page.HowToPlay: if (_howToPlay.Draw()) _page = Page.Home; break;
             case Page.Bluetooth: _battle.OnGUI(); break;
         }
         if (_page == Page.Home && _confirmQuit) DrawQuitConfirm();
@@ -262,8 +269,10 @@ public sealed class AppController : MonoBehaviour
         if (GUI.Button(new Rect(w * 0.35f, 78 * u, w * 0.3f, 12 * u), Text.Start, Ui.Button))
         {
             _profile.CompleteSetup(_nicknameDraft, _setupAvatar);
+            // A new player sees How to play once, straight after choosing a nickname.
             Save();
-            _page = Page.Home;
+            _howToPlay.Reset();
+            _page = Page.HowToPlay;
         }
         GUI.enabled = true;
     }
@@ -314,6 +323,11 @@ public sealed class AppController : MonoBehaviour
         }
         if (GUI.Button(col.Next(11), Text.Settings, Ui.Button)) OpenSettings(Page.Home);
         if (_notice != null) GUI.Label(col.Next(10), _notice, Ui.Small);
+        if (GUI.Button(new Rect(Ui.W * 0.74f, 86 * u, Ui.W * 0.2f, 8 * u), Text.HowToPlay, Ui.SmallButton))
+        {
+            _howToPlay.Reset();
+            _page = Page.HowToPlay;
+        }
     }
 
     private void DrawStageSelect()
@@ -454,6 +468,28 @@ public sealed class AppController : MonoBehaviour
         _feedback.VibrationOn = _profile.VibrationOn;
 
         if (GUI.Button(new Rect(w * 0.4f, 89 * u, w * 0.2f, 9 * u), Text.Back, Ui.Button)) LeaveSettings();
+        if (GUI.Button(new Rect(w * 0.74f, 90 * u, w * 0.2f, 7 * u), Text.PrivacyPolicy, Ui.SmallButton))
+        {
+            Save();
+            _page = Page.Privacy;
+        }
+    }
+
+    private Vector2 _privacyScroll;
+
+    /// <summary>The privacy policy (the same text as docs/privacy-policy.md, for the store listing).</summary>
+    private void DrawPrivacy()
+    {
+        if (_settingsReturn == Page.Paused) Ui.Panel(0.95f, 0.95f);
+        float w = Ui.W, u = Ui.U;
+        GUI.Label(new Rect(0, 3 * u, w, 10 * u), Text.PrivacyPolicy, Ui.Title);
+        var view = new Rect(w * 0.1f, 15 * u, w * 0.8f, 70 * u);
+        float textHeight = Ui.Small.CalcHeight(new GUIContent(Text.PrivacyText), view.width - 4 * u);
+        var small = new GUIStyle(Ui.Small) { alignment = TextAnchor.UpperLeft };
+        _privacyScroll = GUI.BeginScrollView(view, _privacyScroll, new Rect(0, 0, view.width - 4 * u, textHeight));
+        GUI.Label(new Rect(0, 0, view.width - 4 * u, textHeight), Text.PrivacyText, small);
+        GUI.EndScrollView();
+        if (GUI.Button(new Rect(w * 0.4f, 88 * u, w * 0.2f, 9 * u), Text.Back, Ui.Button)) _page = Page.Settings;
     }
 
     private void LeaveSettings()
