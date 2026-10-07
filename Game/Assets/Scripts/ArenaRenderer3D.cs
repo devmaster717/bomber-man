@@ -4,8 +4,8 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 /// <summary>
-/// The 3D view: the grid game drawn as a royal palace (see <see cref="PalaceArt"/>) under a tilted perspective camera
-/// that follows a bomber. Holds no rules: every frame it mirrors what the core says.
+/// The 3D view: the grid game drawn in the current <see cref="ArenaTheme"/> (see <see cref="PalaceArt"/>) under a
+/// tilted perspective camera that follows a bomber. Holds no rules: every frame it mirrors what the core says.
 /// World space: one unit per tile on the ground (y = 0), tile (x, y) centred at (x, 0, -y) so row 0 is the far side.
 /// </summary>
 public sealed class ArenaRenderer3D : IArenaView
@@ -15,8 +15,6 @@ public sealed class ArenaRenderer3D : IArenaView
 
     // Bombers are drawn a bit larger than their 0.6-tile hitbox so they read well among the blocks.
     private const float BomberScale = 1.25f;
-
-    private static readonly Color Background = new Color(0.04f, 0.03f, 0.05f);
 
     private readonly Game _game;
     private readonly Transform _root;
@@ -55,16 +53,18 @@ public sealed class ArenaRenderer3D : IArenaView
         int w = arena.Width, h = arena.Height;
         var centre = new Vector3((w - 1) / 2f, 0f, -(h - 1) / 2f);
 
-        // Polished marble checker floor: the texture holds 6 x 6 squares, so one square per tile.
-        var floorMaterial = Own(new Material(PalaceArt.Mat("Floor")) { mainTextureScale = new Vector2(w / 6f, h / 6f) });
-        var floor = PalaceArt.Part(_root, PalaceArt.Primitive(PrimitiveType.Quad), floorMaterial, centre, new Vector3(w, h, 1f), false);
-        floor.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        // The floor, as a checker of the theme's two tints (the palace's marble is checkered already).
+        var theme = ArenaTheme.Current;
+        foreach (bool dark in new[] { false, true })
+            PalaceArt.Part(_root, FloorMesh(w, h, dark, theme.FloorTiles),
+                PalaceArt.Tint(theme.Floor, dark ? theme.DarkTint : theme.LightTint), Vector3.zero, Vector3.one, false);
 
-        // Royal carpet all around, and a gold border along the arena's edge.
-        var carpetMaterial = Own(new Material(PalaceArt.Mat("Carpet")) { mainTextureScale = new Vector2((w + 40) / 2.5f, (h + 40) / 2.5f) });
-        var carpet = PalaceArt.Part(_root, PalaceArt.Primitive(PrimitiveType.Quad), carpetMaterial, centre + Vector3.down * 0.01f, new Vector3(w + 40f, h + 40f, 1f), false);
-        carpet.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        var gold = PalaceArt.Mat("Gold");
+        // The theme's surroundings all around (the palace's red carpet, a fortress's earth, ...), and a border of its
+        // trim along the arena's edge.
+        var groundMaterial = Own(new Material(PalaceArt.Mat(theme.Ground)) { mainTextureScale = new Vector2((w + 40) / theme.GroundTiles, (h + 40) / theme.GroundTiles) });
+        var ground = PalaceArt.Part(_root, PalaceArt.Primitive(PrimitiveType.Quad), groundMaterial, centre + Vector3.down * 0.01f, new Vector3(w + 40f, h + 40f, 1f), false);
+        ground.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        var gold = PalaceArt.Trim();
         PalaceArt.Part(_root, PalaceArt.ChamferBox(new Vector3(w + 0.3f, 0.05f, 0.15f), 0.02f), gold, new Vector3(centre.x, 0.025f, 0.575f), Vector3.one, false);
         PalaceArt.Part(_root, PalaceArt.ChamferBox(new Vector3(w + 0.3f, 0.05f, 0.15f), 0.02f), gold, new Vector3(centre.x, 0.025f, -(h - 1) - 0.575f), Vector3.one, false);
         PalaceArt.Part(_root, PalaceArt.ChamferBox(new Vector3(0.15f, 0.05f, h + 0.3f), 0.02f), gold, new Vector3(-0.575f, 0.025f, centre.z), Vector3.one, false);
@@ -110,12 +110,44 @@ public sealed class ArenaRenderer3D : IArenaView
         _camera.nearClipPlane = 0.3f;
         _camera.farClipPlane = 100f;
         _camera.clearFlags = CameraClearFlags.SolidColor;
-        _camera.backgroundColor = Background;
+        _camera.backgroundColor = theme.Backdrop;
 
-        // Reflections come from the generated palace hall (PalaceArt.Surroundings). A realtime probe of the arena was
+        // Reflections come from the theme's generated surroundings (PalaceArt.Surroundings). A realtime probe of the arena was
         // tried: on phones it rendered the empty space above the arena, turning upward-facing gold dark red.
         PalaceArt.Light();
         PalaceArt.Finish(_root, _camera, threeD: true);
+    }
+
+    /// <summary>
+    /// One quad per tile for the light (or dark) squares of the checker, with the texture mapped across the floor so
+    /// one copy spans <paramref name="tilesPerCopy"/> tiles and tile edges meet the texture's own squares.
+    /// </summary>
+    private static Mesh FloorMesh(int w, int h, bool dark, int tilesPerCopy)
+    {
+        var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var tris = new List<int>();
+        for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+        {
+            if (((x + y) % 2 == 1) != dark) continue;
+            int start = verts.Count;
+            foreach (var (dx, dz) in new[] { (-0.5f, -0.5f), (-0.5f, 0.5f), (0.5f, 0.5f), (0.5f, -0.5f) })
+            {
+                var v = new Vector3(x + dx, 0f, -y + dz);
+                verts.Add(v);
+                uvs.Add(new Vector2(v.x + 0.5f, v.z + 0.5f) / tilesPerCopy);
+            }
+            tris.AddRange(new[] { start, start + 1, start + 2, start, start + 2, start + 3 });
+        }
+        var mesh = new Mesh { name = dark ? "Floor dark" : "Floor light", indexFormat = IndexFormat.UInt32 };
+        mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
+        mesh.SetTriangles(tris, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateTangents();
+        mesh.RecalculateBounds();
+        return mesh;
     }
 
     private Material Own(Material m)
@@ -325,11 +357,11 @@ public sealed class ArenaRenderer3D : IArenaView
         };
         if (_blocks[i] != null) _blocks[i].position = new Vector3(x, 0f, -y);
 
-        // A crate breaking scatters gold sparkles.
+        // A breakable block going scatters sparkles.
         if (burst && was == Tile.SoftBlock && tile != Tile.SoftBlock)
         {
             var ps = _bursts.Find(p => !p.IsAlive());
-            if (ps == null) _bursts.Add(ps = PalaceArt.Burst(_root, Vector3.up, new Color(1.8f, 1.4f, 0.7f)));
+            if (ps == null) _bursts.Add(ps = PalaceArt.Burst(_root, Vector3.up, ArenaTheme.Current.Burst));
             ps.transform.position = new Vector3(x, 0.4f, -y);
             ps.Play();
         }

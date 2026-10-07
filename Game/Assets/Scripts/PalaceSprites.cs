@@ -6,10 +6,11 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// The 2D view's sprites, rendered from the palace's 3D models (<see cref="PalaceArt"/>) so both views match: blocks,
-/// the exit and power-ups from straight above, characters and bombs from a classic three-quarter angle. They are
-/// rendered in the editor before each build (PalaceSetup) and saved under Resources/Palace/Sprites, because quick
-/// back-to-back render-to-texture is unreliable on some phones; the game only loads them.
+/// The 2D view's sprites, rendered from the 3D models (<see cref="PalaceArt"/>) so both views match: blocks, the exit
+/// and power-ups from straight above, characters and bombs from a classic three-quarter angle. The floor, blocks and
+/// exit come in every <see cref="ArenaTheme"/> (named with the theme's prefix). They are rendered in the editor before
+/// each build (PalaceSetup) and saved under Resources/Palace/Sprites, because quick back-to-back render-to-texture is
+/// unreliable on some phones; the game only loads them.
 /// One tile is one unit; character sprites are 1.25 units tall with their feet at the pivot.
 /// </summary>
 public static class PalaceSprites
@@ -23,21 +24,39 @@ public static class PalaceSprites
     public static Vector2 Pivot(bool top) =>
         top ? new Vector2(0.5f, 0.5f) : new Vector2(0.5f, (CharacterHeight / 2f - 0.45f * Mathf.Cos(CharacterPitch * Mathf.Deg2Rad)) / CharacterHeight);
 
-    /// <summary>Every sprite the 2D view uses: its name, how to build its model, and whether it is seen from above.</summary>
-    public static IEnumerable<(string key, Func<Transform, Transform> build, bool top)> All()
+    /// <summary>
+    /// Every sprite the 2D view uses: its name, how to build its model, whether it is seen from above, and the theme
+    /// to build and light it in.
+    /// </summary>
+    public static IEnumerable<(string key, Func<Transform, Transform> build, bool top, ArenaTheme theme)> All()
     {
-        yield return ("floor-dark", t => FloorSquare(t, true), true);
-        yield return ("floor-light", t => FloorSquare(t, false), true);
-        yield return ("pillar", PalaceArt.Pillar, true);
-        yield return ("wall", PalaceArt.Wall, true);
-        yield return ("crate", PalaceArt.Crate, true);
+        foreach (var theme in ArenaTheme.All)
+            foreach (var (key, build) in Themed())
+                yield return (theme.SpritePrefix + key, build, true, theme);
+        foreach (var (key, build, top) in Shared())
+            yield return (key, build, top, ArenaTheme.Palace);
+    }
+
+    // The sprites that differ between themes, all seen from above.
+    private static IEnumerable<(string key, Func<Transform, Transform> build)> Themed()
+    {
+        yield return ("floor-dark", t => FloorSquare(t, true));
+        yield return ("floor-light", t => FloorSquare(t, false));
+        yield return ("pillar", PalaceArt.Pillar);
+        yield return ("wall", PalaceArt.Wall);
+        yield return ("crate", PalaceArt.Crate);
         foreach (bool open in new[] { false, true })
             yield return (open ? "exit-open" : "exit-shut", t =>
             {
                 var exit = PalaceArt.Exit(t, out var inner);
                 inner.sharedMaterial = PalaceArt.ExitInner(open);
                 return exit;
-            }, true);
+            });
+    }
+
+    // The sprites every theme shares: power-ups, bombs and characters.
+    private static IEnumerable<(string key, Func<Transform, Transform> build, bool top)> Shared()
+    {
         foreach (PowerUpKind kind in Enum.GetValues(typeof(PowerUpKind)))
             yield return ("power-" + kind, t => PalaceArt.PowerUp(t, kind), true);
         foreach (bool remote in new[] { false, true })
@@ -67,11 +86,12 @@ public static class PalaceSprites
             }, false);
     }
 
-    public static Sprite Floor(bool dark) => Get(dark ? "floor-dark" : "floor-light");
-    public static Sprite Pillar => Get("pillar");
-    public static Sprite Wall => Get("wall");
-    public static Sprite Crate => Get("crate");
-    public static Sprite Exit(bool open) => Get(open ? "exit-open" : "exit-shut");
+    public static Sprite Floor(bool dark) => Get(Prefix + (dark ? "floor-dark" : "floor-light"));
+    public static Sprite Pillar => Get(Prefix + "pillar");
+    public static Sprite Wall => Get(Prefix + "wall");
+    public static Sprite Crate => Get(Prefix + "crate");
+    public static Sprite Exit(bool open) => Get(Prefix + (open ? "exit-open" : "exit-shut"));
+    private static string Prefix => ArenaTheme.Current.SpritePrefix;
     public static Sprite PowerUp(PowerUpKind kind) => Get("power-" + kind);
     public static Sprite Bomb(bool remote) => Get(remote ? "bomb-remote" : "bomb");
     public static Sprite Bomber(int slot) => Get("bomber-" + Mathf.Clamp(slot, 0, 2));
@@ -86,23 +106,27 @@ public static class PalaceSprites
         if (sprite == null)
         {
             // Not rendered yet (a fresh checkout in the editor): render it now so the view still works.
-            foreach (var (k, build, top) in All())
+            foreach (var (k, build, top, theme) in All())
                 if (k == key)
                 {
-                    var texture = Render(build, top);
+                    Texture2D texture;
+                    using (theme.Use()) texture = Render(build, top);
                     sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), Pivot(top), PixelsPerUnit);
                 }
         }
         return Loaded[key] = sprite;
     }
 
-    // The floor texture holds 6 x 6 squares; its bottom-left square is black, the one beside it cream.
+    // One tile of the theme's floor: the square of its texture the theme picks, in its light or dark tint (the
+    // palace's texture is a 6 x 6 checker whose bottom-left square is black, the one beside it cream).
     private static Transform FloorSquare(Transform parent, bool dark)
     {
-        var material = new Material(PalaceArt.Mat("Floor"))
+        var theme = ArenaTheme.Current;
+        float n = theme.FloorTiles;
+        var material = new Material(PalaceArt.Tint(theme.Floor, dark ? theme.DarkTint : theme.LightTint))
         {
-            mainTextureScale = new Vector2(1f / 6f, 1f / 6f),
-            mainTextureOffset = new Vector2(dark ? 0f : 1f / 6f, 0f),
+            mainTextureScale = new Vector2(1f / n, 1f / n),
+            mainTextureOffset = (dark ? theme.DarkSquare : theme.LightSquare) / n,
         };
         var quad = PalaceArt.Part(parent, PalaceArt.Primitive(PrimitiveType.Quad), material, Vector3.zero, Vector3.one, false);
         quad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);

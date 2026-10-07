@@ -5,32 +5,17 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
-/// The royal-palace look shared by the 3D view and the 2D sprites rendered from it: marble, stone, wood and gold
-/// materials (CC0 textures from ambientCG), bevelled meshes, and the models for blocks, bombs, bombers, enemies,
-/// power-ups and the exit, plus flame and sparkle effects. Holds no rules.
+/// The look shared by the 3D view and the 2D sprites rendered from it: materials (CC0 textures from ambientCG),
+/// bevelled meshes, and the models for blocks, bombs, bombers, enemies, power-ups and the exit, plus flame and sparkle
+/// effects. Blocks, the exit and the lighting follow <see cref="ArenaTheme.Current"/> (palace, fortress, garden or
+/// frozen citadel); the characters, bombs and power-ups keep their royal look in every theme. Holds no rules.
 /// Model space: one unit per tile, standing on y = 0, facing +z.
 /// </summary>
 public static class PalaceArt
 {
     // ---- palette ----
 
-    public static readonly Color Navy = new Color(0.05f, 0.07f, 0.14f);
     public static readonly Color GoldText = new Color(0.94f, 0.80f, 0.45f);
-
-    /// <summary>Each player slot's enamel colour (body and jewel), matching the 2D sprites' slot colours.</summary>
-    public static Color SlotColour(int slot) => slot switch
-    {
-        1 => new Color(0.78f, 0.12f, 0.14f), // ruby
-        2 => new Color(0.12f, 0.30f, 0.80f), // sapphire
-        _ => new Color(0.93f, 0.93f, 0.95f), // pearl
-    };
-
-    private static Color SlotTrim(int slot) => slot switch
-    {
-        1 => new Color(0.25f, 0.05f, 0.06f),
-        2 => new Color(0.05f, 0.09f, 0.28f),
-        _ => new Color(0.16f, 0.22f, 0.55f),
-    };
 
     // ---- materials ----
 
@@ -62,6 +47,7 @@ public static class PalaceArt
     }
 
     public static Material Glossy(Color c) => Tint("Glossy", c);
+    public static Material Matte(Color c) => Tint("Matte", c);
     public static Material Glow(Color c) => Tint("Glow", c);
 
     /// <summary>An additive glow material showing a texture (power-up icons).</summary>
@@ -205,39 +191,129 @@ public static class PalaceArt
     /// <summary>Height of the tallest arena piece, for cameras.</summary>
     public const float WallHeight = 0.92f;
 
-    /// <summary>An inner pillar: black marble on a gold plinth, with a gold capital and a marble inlay on top.</summary>
+    /// <summary>The theme's metal trim: gold, bronze, dark wood or silver.</summary>
+    public static Material Trim() => ArenaTheme.Current.Key switch
+    {
+        "fortress" => Mat("Bronze"),
+        "garden" => Tint("Wood", new Color(0.66f, 0.48f, 0.34f)),
+        "frozen" => Mat("Silver"),
+        _ => Mat("Gold"),
+    };
+
+    /// <summary>An inner pillar, which can't be broken.</summary>
     public static Transform Pillar(Transform parent)
     {
         var t = Group("Pillar", parent);
-        var gold = Mat("Gold");
-        Box(t, new Vector3(0.96f, 0.08f, 0.96f), 0.025f, gold, new Vector3(0, 0.04f, 0));
-        Box(t, new Vector3(0.84f, 0.66f, 0.84f), 0.05f, Mat("Marble"), new Vector3(0, 0.41f, 0));
-        Box(t, new Vector3(0.96f, 0.08f, 0.96f), 0.025f, gold, new Vector3(0, 0.78f, 0));
-        Box(t, new Vector3(0.62f, 0.04f, 0.62f), 0.015f, Mat("Marble"), new Vector3(0, 0.83f, 0));
+        switch (ArenaTheme.Current.Key)
+        {
+            case "fortress": // a red lacquered column on a stone base, banded in bronze
+                Box(t, new Vector3(0.9f, 0.12f, 0.9f), 0.03f, Tint("Paving", new Color(0.8f, 0.78f, 0.75f)), new Vector3(0, 0.06f, 0));
+                Disc(t, Mat("Lacquer"), new Vector3(0, 0.45f, 0), new Vector3(0.62f, 0.33f, 0.62f));
+                Disc(t, Mat("Bronze"), new Vector3(0, 0.2f, 0), new Vector3(0.66f, 0.025f, 0.66f));
+                Disc(t, Mat("Bronze"), new Vector3(0, 0.78f, 0), new Vector3(0.7f, 0.03f, 0.7f));
+                // A little tiled cap, as on a gate tower's columns.
+                Box(t, new Vector3(0.84f, 0.08f, 0.84f), 0.03f, Tint("Roof", new Color(0.62f, 0.58f, 0.58f)), new Vector3(0, 0.84f, 0));
+                Box(t, new Vector3(0.36f, 0.06f, 0.36f), 0.02f, Mat("Bronze"), new Vector3(0, 0.9f, 0));
+                break;
+            case "garden": // a scholar's rock, weathered and lumpy, on a bed of moss
+                Ball(t, Tint("Lawn", new Color(0.55f, 0.7f, 0.45f)), new Vector3(0, 0.03f, 0), new Vector3(0.92f, 0.1f, 0.92f), false);
+                var rock = Mat("Rock");
+                Ball(t, rock, new Vector3(0.02f, 0.24f, 0), new Vector3(0.78f, 0.5f, 0.66f)).transform.localRotation = Quaternion.Euler(0f, 30f, 8f);
+                Ball(t, rock, new Vector3(0.1f, 0.52f, 0.02f), new Vector3(0.46f, 0.62f, 0.4f)).transform.localRotation = Quaternion.Euler(10f, 0f, 22f);
+                Ball(t, rock, new Vector3(-0.12f, 0.74f, -0.04f), new Vector3(0.36f, 0.42f, 0.3f)).transform.localRotation = Quaternion.Euler(-8f, 40f, -28f);
+                Ball(t, rock, new Vector3(-0.24f, 0.36f, 0.12f), new Vector3(0.34f, 0.4f, 0.3f)).transform.localRotation = Quaternion.Euler(0f, 0f, -18f);
+                break;
+            case "frozen": // ice crystals rising from a snow drift
+                Ball(t, Mat("Snow"), new Vector3(0, 0.04f, 0), new Vector3(0.94f, 0.2f, 0.94f));
+                var ice = Tint("Ice", new Color(0.78f, 0.92f, 1.1f));
+                Box(t, new Vector3(0.46f, 0.82f, 0.46f), 0.06f, ice, new Vector3(0, 0.45f, 0)).transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
+                Box(t, new Vector3(0.24f, 0.5f, 0.24f), 0.04f, ice, new Vector3(0.24f, 0.28f, 0.16f)).transform.localRotation = Quaternion.Euler(0f, 20f, -18f);
+                break;
+            default: // black marble on a gold plinth, with a gold capital and a marble inlay on top
+                var gold = Mat("Gold");
+                Box(t, new Vector3(0.96f, 0.08f, 0.96f), 0.025f, gold, new Vector3(0, 0.04f, 0));
+                Box(t, new Vector3(0.84f, 0.66f, 0.84f), 0.05f, Mat("Marble"), new Vector3(0, 0.41f, 0));
+                Box(t, new Vector3(0.96f, 0.08f, 0.96f), 0.025f, gold, new Vector3(0, 0.78f, 0));
+                Box(t, new Vector3(0.62f, 0.04f, 0.62f), 0.015f, Mat("Marble"), new Vector3(0, 0.83f, 0));
+                break;
+        }
         return t;
     }
 
-    /// <summary>The outer wall: pale palace stone with a slim gold trim below the top.</summary>
+    /// <summary>The outer wall.</summary>
     public static Transform Wall(Transform parent)
     {
         var t = Group("Wall", parent);
-        Box(t, new Vector3(1f, 0.9f, 1f), 0.03f, Mat("Stone"), new Vector3(0, 0.45f, 0));
-        Box(t, new Vector3(1.03f, 0.05f, 1.03f), 0.015f, Mat("Gold"), new Vector3(0, 0.76f, 0));
+        switch (ArenaTheme.Current.Key)
+        {
+            case "fortress": // grey brick rampart under a stone coping
+                Box(t, new Vector3(1f, 0.84f, 1f), 0.03f, Mat("Brick"), new Vector3(0, 0.42f, 0));
+                Box(t, new Vector3(1.04f, 0.08f, 1.04f), 0.02f, Tint("Paving", new Color(0.62f, 0.6f, 0.58f)), new Vector3(0, 0.86f, 0));
+                break;
+            case "garden": // white plaster under a grey tiled cap
+                Box(t, new Vector3(1f, 0.76f, 1f), 0.03f, Mat("Plaster"), new Vector3(0, 0.38f, 0));
+                Box(t, new Vector3(1.08f, 0.1f, 1.08f), 0.03f, Tint("Roof", new Color(0.9f, 0.92f, 1f)), new Vector3(0, 0.81f, 0));
+                Box(t, new Vector3(0.5f, 0.04f, 1.02f), 0.015f, Tint("Roof", new Color(0.62f, 0.64f, 0.7f)), new Vector3(0, 0.88f, 0));
+                break;
+            case "frozen": // frosted stone under a thick cap of snow
+                Box(t, new Vector3(1f, 0.82f, 1f), 0.03f, Tint("Brick", new Color(0.76f, 0.86f, 1f)), new Vector3(0, 0.41f, 0));
+                Box(t, new Vector3(1.05f, 0.12f, 1.05f), 0.05f, Mat("Snow"), new Vector3(0, 0.84f, 0));
+                break;
+            default: // pale palace stone with a slim gold trim below the top
+                Box(t, new Vector3(1f, 0.9f, 1f), 0.03f, Mat("Stone"), new Vector3(0, 0.45f, 0));
+                Box(t, new Vector3(1.03f, 0.05f, 1.03f), 0.015f, Mat("Gold"), new Vector3(0, 0.76f, 0));
+                break;
+        }
         return t;
     }
 
-    /// <summary>A breakable crate: wooden planks bound with gold corners and a gold band.</summary>
+    /// <summary>A breakable block.</summary>
     public static Transform Crate(Transform parent)
     {
         var t = Group("Crate", parent);
-        var gold = Mat("Gold");
-        Box(t, new Vector3(0.84f, 0.74f, 0.84f), 0.04f, Mat("Wood"), new Vector3(0, 0.37f, 0));
+        switch (ArenaTheme.Current.Key)
+        {
+            case "fortress": // a supply crate of dark timber bound in bronze
+                BoundCrate(t, Tint("Wood", new Color(0.95f, 0.84f, 0.7f)), Mat("Bronze"));
+                break;
+            case "garden": // a bamboo planter holding a round, flowering shrub
+                Box(t, new Vector3(0.84f, 0.36f, 0.84f), 0.03f, Mat("Bamboo"), new Vector3(0, 0.18f, 0));
+                Box(t, new Vector3(0.88f, 0.05f, 0.88f), 0.015f, Trim(), new Vector3(0, 0.36f, 0));
+                var leaves = Tint("Lawn", new Color(0.46f, 0.6f, 0.4f));
+                Ball(t, leaves, new Vector3(0, 0.56f, 0), new Vector3(0.8f, 0.5f, 0.8f));
+                Ball(t, leaves, new Vector3(0.14f, 0.7f, -0.1f), new Vector3(0.46f, 0.38f, 0.46f));
+                Ball(t, leaves, new Vector3(-0.16f, 0.68f, 0.12f), new Vector3(0.4f, 0.32f, 0.4f));
+                // Blossoms scattered over the shrub: two shades, uneven, so they read as flowers rather than eyes.
+                var pink = Matte(new Color(0.98f, 0.5f, 0.66f));
+                var coral = Matte(new Color(1f, 0.66f, 0.5f));
+                var blooms = new[]
+                {
+                    new Vector3(-0.3f, 0.6f, 0.1f), new Vector3(0.26f, 0.62f, 0.2f), new Vector3(0.05f, 0.82f, 0.18f),
+                    new Vector3(-0.08f, 0.78f, -0.24f), new Vector3(0.3f, 0.74f, -0.14f), new Vector3(-0.2f, 0.84f, 0.02f),
+                    new Vector3(0.12f, 0.66f, 0.32f), new Vector3(-0.28f, 0.62f, -0.2f),
+                };
+                for (int i = 0; i < blooms.Length; i++)
+                    Ball(t, i % 3 == 2 ? coral : pink, blooms[i], Vector3.one * (i % 2 == 0 ? 0.075f : 0.06f), false);
+                break;
+            case "frozen": // a frosted crate under a slab of snow, its silver corners showing
+                BoundCrate(t, Tint("Wood", new Color(0.78f, 0.84f, 0.95f)), Mat("Silver"));
+                Box(t, new Vector3(0.56f, 0.06f, 0.56f), 0.03f, Mat("Snow"), new Vector3(0, 0.77f, 0));
+                break;
+            default: // wooden planks bound with gold corners and a gold band
+                BoundCrate(t, Mat("Wood"), Mat("Gold"));
+                break;
+        }
+        return t;
+    }
+
+    private static void BoundCrate(Transform t, Material wood, Material metal)
+    {
+        Box(t, new Vector3(0.84f, 0.74f, 0.84f), 0.04f, wood, new Vector3(0, 0.37f, 0));
         foreach (int sx in new[] { -1, 1 })
         foreach (int sz in new[] { -1, 1 })
-            Box(t, new Vector3(0.11f, 0.76f, 0.11f), 0.02f, gold, new Vector3(sx * 0.41f, 0.38f, sz * 0.41f));
-        Box(t, new Vector3(0.86f, 0.07f, 0.86f), 0.015f, gold, new Vector3(0, 0.62f, 0));
-        Box(t, new Vector3(0.86f, 0.07f, 0.86f), 0.015f, gold, new Vector3(0, 0.12f, 0));
-        return t;
+            Box(t, new Vector3(0.11f, 0.76f, 0.11f), 0.02f, metal, new Vector3(sx * 0.41f, 0.38f, sz * 0.41f));
+        Box(t, new Vector3(0.86f, 0.07f, 0.86f), 0.015f, metal, new Vector3(0, 0.62f, 0));
+        Box(t, new Vector3(0.86f, 0.07f, 0.86f), 0.015f, metal, new Vector3(0, 0.12f, 0));
     }
 
     /// <summary>A polished black bomb with a gold band and cap; returns the body for tinting remote bombs.</summary>
@@ -256,16 +332,22 @@ public static class PalaceArt
     public static Material BombMaterial(bool remote) =>
         Glossy(remote ? new Color(0.35f, 0.03f, 0.04f) : new Color(0.04f, 0.04f, 0.05f));
 
-    /// <summary>The exit: a gold ring set in the floor; inside, dark marble while shut, a glowing portal once open.</summary>
+    /// <summary>The exit: a ring of the theme's trim set in the floor; dark stone inside while shut, a glowing portal once open.</summary>
     public static Transform Exit(Transform parent, out Renderer inner)
     {
         var t = Group("Exit", parent);
-        Disc(t, Mat("Gold"), new Vector3(0, 0.02f, 0), new Vector3(0.9f, 0.02f, 0.9f), false);
-        inner = Disc(t, Mat("Marble"), new Vector3(0, 0.03f, 0), new Vector3(0.72f, 0.02f, 0.72f), false).GetComponent<Renderer>();
+        Disc(t, Trim(), new Vector3(0, 0.02f, 0), new Vector3(0.9f, 0.02f, 0.9f), false);
+        inner = Disc(t, ExitInner(false), new Vector3(0, 0.03f, 0), new Vector3(0.72f, 0.02f, 0.72f), false).GetComponent<Renderer>();
         return t;
     }
 
-    public static Material ExitInner(bool open) => open ? Glow(new Color(1.2f, 2.2f, 2.6f)) : Mat("Marble");
+    public static Material ExitInner(bool open) => open ? Glow(new Color(1.2f, 2.2f, 2.6f)) : ArenaTheme.Current.Key switch
+    {
+        "fortress" => Tint("Paving", new Color(0.3f, 0.28f, 0.27f)),
+        "garden" => Tint("Rock", new Color(0.45f, 0.5f, 0.5f)),
+        "frozen" => Tint("Ice", new Color(0.25f, 0.4f, 0.7f)),
+        _ => Mat("Marble"),
+    };
 
     /// <summary>A power-up: an enamel tile in a gold frame with a glowing white symbol.</summary>
     public static Transform PowerUp(Transform parent, PowerUpKind kind)
@@ -288,68 +370,94 @@ public static class PalaceArt
 
     // ---- characters ----
 
-    /// <summary>A royal bomber's moving parts, posed each frame by <see cref="Pose"/>.</summary>
+    /// <summary>
+    /// The character model each player slot plays as: animated cartoon people from Kenney's Mini Characters (CC0),
+    /// under Resources/Palace/Characters.
+    /// </summary>
+    public static string[] BomberModels = { "character-female-e", "character-male-b", "character-male-c" };
+
+    /// <summary>How tall a bomber model stands (before the views' own scaling), in tiles.</summary>
+    private const float BomberHeight = 0.86f;
+
+    // The walk animation's natural pace matches about this ground speed, in tiles per second.
+    private const float WalkPace = 2.6f;
+
+    /// <summary>A bomber's character and its animation, played each frame by <see cref="Pose"/>.</summary>
     public sealed class BomberRig
     {
-        public Transform Root, Body, LeftFoot, RightFoot, LeftHand, RightHand;
-        private float _phase;
+        public Transform Root;
+        public Animation Animation;
+        private string _playing;
 
-        /// <summary>Walk cycle: bob, swing feet and hands while moving; breathe when still.</summary>
+        /// <summary>Walks (faster the faster it goes) while moving, stands idle otherwise.</summary>
         public void Pose(float distanceMoved, float time)
         {
-            _phase += distanceMoved * 9f;
-            bool moving = distanceMoved > 1e-4f;
-            float swing = moving ? Mathf.Sin(_phase) : 0f;
-            float bob = moving ? Mathf.Abs(Mathf.Sin(_phase)) * 0.05f : Mathf.Sin(time * 2.2f) * 0.008f;
-            Body.localPosition = new Vector3(0, bob, 0);
-            LeftFoot.localPosition = new Vector3(-0.11f, 0.05f, 0.02f + swing * 0.09f);
-            RightFoot.localPosition = new Vector3(0.11f, 0.05f, 0.02f - swing * 0.09f);
-            LeftHand.localPosition = new Vector3(-0.25f, 0.33f, 0.04f - swing * 0.08f);
-            RightHand.localPosition = new Vector3(0.25f, 0.33f, 0.04f + swing * 0.08f);
+            if (Animation == null) return;
+            float speed = Time.deltaTime > 0f ? distanceMoved / Time.deltaTime / Root.lossyScale.x : 0f;
+            bool moving = distanceMoved > 1e-4f && speed < 40f; // a jump (respawn, view switch) isn't walking
+            string clip = !moving ? "idle" : speed > 6f ? "sprint" : "walk";
+            if (moving) Animation[clip].speed = Mathf.Clamp(speed / (clip == "sprint" ? WalkPace * 2f : WalkPace), 0.7f, 2.2f);
+            if (clip == _playing) return;
+            Animation.CrossFade(clip, 0.12f);
+            _playing = clip;
         }
     }
 
     /// <summary>
-    /// A royal bomber: an enamel body in the slot's colour, a pearl-white helmet with a dark visor and glowing eyes,
-    /// gold belt and crown with the slot's jewel.
+    /// A bomber: the slot's cartoon character (see <see cref="BomberModels"/>), standing in its idle pose on a soft
+    /// ring of the slot's colour (pearl, ruby or sapphire) so players can tell each other apart. Faces +z.
     /// </summary>
     public static BomberRig Bomber(Transform parent, int slot)
     {
         var rig = new BomberRig { Root = Group("Bomber " + slot, parent) };
-        var gold = Mat("Gold");
-        var pearl = Glossy(new Color(0.96f, 0.95f, 0.92f));
-        var trim = Glossy(SlotTrim(slot));
-        rig.LeftFoot = Box(rig.Root, new Vector3(0.16f, 0.1f, 0.24f), 0.04f, trim, Vector3.zero).transform;
-        rig.RightFoot = Box(rig.Root, new Vector3(0.16f, 0.1f, 0.24f), 0.04f, trim, Vector3.zero).transform;
-
-        rig.Body = Group("Body", rig.Root);
-        var b = rig.Body;
-        Ball(b, Glossy(SlotColour(slot)), new Vector3(0, 0.34f, 0), new Vector3(0.44f, 0.42f, 0.4f));
-        Disc(b, gold, new Vector3(0, 0.3f, 0), new Vector3(0.45f, 0.03f, 0.41f));
-        rig.LeftHand = Ball(b, pearl, Vector3.zero, Vector3.one * 0.13f).transform;
-        rig.RightHand = Ball(b, pearl, Vector3.zero, Vector3.one * 0.13f).transform;
-        Ball(b, pearl, new Vector3(0, 0.74f, 0), Vector3.one * 0.46f);
-        Ball(b, Glossy(new Color(0.03f, 0.04f, 0.08f)), new Vector3(0, 0.72f, 0.12f), new Vector3(0.34f, 0.25f, 0.24f));
-        var eye = Glow(new Color(2.2f, 2.2f, 2.4f));
-        Ball(b, eye, new Vector3(-0.065f, 0.735f, 0.235f), new Vector3(0.05f, 0.09f, 0.03f), false);
-        Ball(b, eye, new Vector3(0.065f, 0.735f, 0.235f), new Vector3(0.05f, 0.09f, 0.03f), false);
-        // Crown: a gold band with five points and the slot's jewel in front.
-        Disc(b, gold, new Vector3(0, 0.98f, 0), new Vector3(0.27f, 0.035f, 0.27f));
-        for (int i = 0; i < 5; i++)
+        var prefab = Resources.Load<GameObject>("Palace/Characters/" + BomberModels[Mathf.Clamp(slot, 0, BomberModels.Length - 1)]);
+        if (prefab == null)
         {
-            float a = i * Mathf.PI * 2f / 5f;
-            Ball(b, gold, new Vector3(Mathf.Sin(a) * 0.12f, 1.04f, Mathf.Cos(a) * 0.12f), new Vector3(0.05f, 0.09f, 0.05f));
+            Debug.LogError("Bomber model missing: " + BomberModels[slot]);
+            return rig;
         }
-        Ball(b, Glow(SlotJewel(slot)), new Vector3(0, 0.99f, 0.13f), Vector3.one * 0.055f, false);
-        rig.Pose(0f, 0f);
+        var model = Object.Instantiate(prefab, rig.Root, false);
+        model.name = "Character";
+        var material = Mat("Character");
+        foreach (var r in model.GetComponentsInChildren<Renderer>())
+        {
+            var shared = new Material[r.sharedMaterials.Length];
+            for (int i = 0; i < shared.Length; i++) shared[i] = material;
+            r.sharedMaterials = shared;
+            r.shadowCastingMode = ShadowCastingMode.On;
+            if (r is SkinnedMeshRenderer skinned) skinned.updateWhenOffscreen = true; // its bounds follow the animation
+        }
+
+        rig.Animation = model.GetComponent<Animation>();
+        if (rig.Animation != null)
+        {
+            foreach (AnimationState state in rig.Animation) state.wrapMode = WrapMode.Loop;
+            // Stand in the idle pose straight away (also for the sprites rendered in the editor, where nothing plays).
+            var idle = rig.Animation["idle"];
+            if (idle != null) idle.clip.SampleAnimation(model, 0f);
+            rig.Animation.Play("idle");
+        }
+
+        // Scale the character to the bomber's height, standing on the ground.
+        var bounds = new Bounds(model.transform.position, Vector3.zero);
+        foreach (var r in model.GetComponentsInChildren<Renderer>()) bounds.Encapsulate(r.bounds);
+        if (bounds.size.y > 1e-3f)
+        {
+            float scale = BomberHeight / bounds.size.y;
+            model.transform.localScale *= scale;
+            model.transform.localPosition = new Vector3(0f, (model.transform.position.y - bounds.min.y) * scale, 0f);
+        }
+
+        var ring = Part(rig.Root, Primitive(PrimitiveType.Quad), Tint("Ring", SlotRing(slot)), new Vector3(0, 0.015f, 0), Vector3.one * 0.85f, false);
+        ring.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
         return rig;
     }
 
-    private static Color SlotJewel(int slot) => slot switch
+    private static Color SlotRing(int slot) => slot switch
     {
-        1 => new Color(2.4f, 0.2f, 0.3f),
-        2 => new Color(0.3f, 0.7f, 2.6f),
-        _ => new Color(0.4f, 2.0f, 0.9f),
+        1 => new Color(1.8f, 0.25f, 0.3f),
+        2 => new Color(0.35f, 0.75f, 2.2f),
+        _ => new Color(1.5f, 1.45f, 1.3f),
     };
 
     /// <summary>An enemy's parts, posed each frame by <see cref="Pose"/>; the Phantom fades.</summary>
@@ -524,8 +632,8 @@ public static class PalaceArt
     // ---- lighting and finish ----
 
     /// <summary>
-    /// Warm palace lighting and a filmic finish (bloom on gold and fire, ACES tone mapping, gentle vignette) for a
-    /// camera. Returns the volume so the caller can remove it with its scene.
+    /// A filmic finish (bloom on metal and fire, ACES tone mapping, gentle vignette) for a camera, tinted for the
+    /// current theme. Returns the volume so the caller can remove it with its scene.
     /// </summary>
     public static Volume Finish(Transform parent, Camera camera, bool threeD)
     {
@@ -538,7 +646,7 @@ public static class PalaceArt
         bloom.threshold.Override(threeD ? 0.95f : 1.05f);
         bloom.intensity.Override(threeD ? 0.75f : 0.5f);
         bloom.scatter.Override(0.65f);
-        bloom.tint.Override(new Color(1f, 0.93f, 0.82f));
+        bloom.tint.Override(ArenaTheme.Current.BloomTint);
         var tone = profile.Add<Tonemapping>(true);
         tone.mode.Override(threeD ? TonemappingMode.ACES : TonemappingMode.Neutral);
         var grade = profile.Add<ColorAdjustments>(true);
@@ -548,7 +656,7 @@ public static class PalaceArt
         var vignette = profile.Add<Vignette>(true);
         vignette.intensity.Override(threeD ? 0.3f : 0.22f);
         vignette.smoothness.Override(0.45f);
-        vignette.color.Override(new Color(0.02f, 0.02f, 0.06f));
+        vignette.color.Override(ArenaTheme.Current.VignetteColour);
 
         var go = new GameObject("Palace finish");
         go.transform.SetParent(parent, false);
@@ -558,47 +666,51 @@ public static class PalaceArt
         return volume;
     }
 
-    /// <summary>The scene's sun, warm and from the front-left, with soft shadows; and a warm three-colour ambient.</summary>
+    /// <summary>The scene's sun from the front-left with soft shadows, ambient light and reflections, for the current theme.</summary>
     public static void Light()
     {
+        var theme = ArenaTheme.Current;
         Light sun = null;
         foreach (var l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
             if (l.type == LightType.Directional) { sun = l; break; }
         if (sun == null) sun = new GameObject("Sun").AddComponent<Light>();
         sun.type = LightType.Directional;
-        sun.color = new Color(1f, 0.92f, 0.8f);
-        sun.intensity = 1.25f;
+        sun.color = theme.Sun;
+        sun.intensity = theme.SunIntensity;
         sun.shadows = LightShadows.Soft;
         sun.shadowStrength = 0.75f;
-        sun.transform.rotation = Quaternion.Euler(55f, -32f, 0f);
+        sun.transform.rotation = Quaternion.Euler(theme.SunAngles.x, theme.SunAngles.y, 0f);
 
-        // Ambient light set directly (URP reads it from this probe): warm from above, darker from below, so upward
+        // Ambient light set directly (URP reads it from this probe): brighter from above, darker from below, so upward
         // faces aren't tinted by whatever sky the project had.
         var ambient = new SphericalHarmonicsL2();
-        ambient.AddAmbientLight(new Color(0.36f, 0.3f, 0.27f));
-        ambient.AddDirectionalLight(Vector3.up, new Color(0.3f, 0.27f, 0.25f), 1f);
+        ambient.AddAmbientLight(theme.Ambient);
+        ambient.AddDirectionalLight(Vector3.up, theme.AmbientFromAbove, 1f);
         RenderSettings.ambientMode = AmbientMode.Custom;
         RenderSettings.ambientProbe = ambient;
-        // Reflections come from a warm palace interior (the arena's own probe adds the real surroundings on top).
+        // Reflections come from the theme's generated surroundings.
         RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
         RenderSettings.customReflectionTexture = Surroundings();
         RenderSettings.reflectionIntensity = 1f;
     }
 
-    private static Cubemap _surroundings;
+    private static readonly Dictionary<ArenaTheme, Cubemap> SurroundingsMade = new Dictionary<ArenaTheme, Cubemap>();
 
     /// <summary>
-    /// A small generated cubemap of a palace hall for reflections: bright candle-cream light above with a few
-    /// chandelier glints, warm walls at the horizon, a dark red floor below. Without it, gold mirrors a blue sky.
+    /// A small generated cubemap of the theme's surroundings for reflections: its sky colour above, horizon, ground
+    /// below; indoors (the palace hall) with chandelier glints and a band of windows, outdoors with the sun's glare.
+    /// Without it, metal mirrors whatever sky the project had.
     /// </summary>
     public static Cubemap Surroundings()
     {
-        if (_surroundings != null) return _surroundings;
+        var theme = ArenaTheme.Current;
+        if (SurroundingsMade.TryGetValue(theme, out var made) && made != null) return made;
         const int n = 32;
-        var cube = new Cubemap(n, TextureFormat.RGBAHalf, true) { name = "Palace surroundings" };
-        var top = new Color(0.95f, 0.78f, 0.58f);
-        var horizon = new Color(0.3f, 0.17f, 0.1f);
-        var below = new Color(0.08f, 0.03f, 0.02f);
+        var cube = new Cubemap(n, TextureFormat.RGBAHalf, true) { name = theme.Name + " surroundings" };
+        var top = theme.SkyTop;
+        var horizon = theme.SkyHorizon;
+        var below = theme.SkyBelow;
+        var toSun = Quaternion.Euler(theme.SunAngles.x, theme.SunAngles.y, 0f) * Vector3.back;
         var pixels = new Color[n * n];
         for (int f = 0; f < 6; f++)
         {
@@ -616,16 +728,24 @@ public static class PalaceArt
                     _ => new Vector3(-u, -v, -1),
                 }).normalized;
                 var c = d.y >= 0f ? Color.Lerp(horizon, top, Mathf.Pow(d.y, 0.6f)) : Color.Lerp(horizon, below, Mathf.Pow(-d.y, 0.5f));
-                // Chandeliers: soft bright spots in a ring overhead.
-                float ring = Mathf.Abs(Mathf.Sin(Mathf.Atan2(d.z, d.x) * 3f));
-                if (d.y > 0.3f && d.y < 0.8f) c += new Color(3.2f, 2.6f, 1.8f) * Mathf.Pow(ring, 18f);
-                // A band of tall windows at the horizon gives edges a bright rim.
-                if (Mathf.Abs(d.y) < 0.15f) c += new Color(0.9f, 0.75f, 0.55f) * Mathf.Pow(Mathf.Abs(Mathf.Sin(Mathf.Atan2(d.z, d.x) * 6f)), 10f);
+                if (theme.Indoors)
+                {
+                    // Chandeliers: soft bright spots in a ring overhead.
+                    float ring = Mathf.Abs(Mathf.Sin(Mathf.Atan2(d.z, d.x) * 3f));
+                    if (d.y > 0.3f && d.y < 0.8f) c += new Color(3.2f, 2.6f, 1.8f) * Mathf.Pow(ring, 18f);
+                    // A band of tall windows at the horizon gives edges a bright rim.
+                    if (Mathf.Abs(d.y) < 0.15f) c += new Color(0.9f, 0.75f, 0.55f) * Mathf.Pow(Mathf.Abs(Mathf.Sin(Mathf.Atan2(d.z, d.x) * 6f)), 10f);
+                }
+                else
+                {
+                    // Outdoors: the sun's glare, so polished edges catch a highlight.
+                    c += theme.Sun * 4f * Mathf.Pow(Mathf.Max(0f, Vector3.Dot(d, toSun)), 64f);
+                }
                 pixels[y * n + x] = c;
             }
             cube.SetPixels(pixels, (CubemapFace)f);
         }
         cube.Apply(true, true);
-        return _surroundings = cube;
+        return SurroundingsMade[theme] = cube;
     }
 }

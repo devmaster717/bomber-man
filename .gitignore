@@ -13,3 +13,6 @@ TestResults/
 # Written by Unity's performance-testing package during builds
 Game/Assets/Resources/PerformanceTestRun*.json
 Game/Assets/Resources/PerformanceTestRun*.json.meta
+
+# Offline build libraries (Tools/Make-OfflineKit.ps1): 300+ MB, copied to offline machines rather than committed
+Tools/offline-maven/

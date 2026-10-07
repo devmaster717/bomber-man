@@ -17,6 +17,8 @@ public static class PalaceSetup
     private const string Textures = Root + "/Textures/";
     private const string Materials = Root + "/Materials/";
     private const string Sprites = Root + "/Sprites/";
+    private const string Avatars = Root + "/Avatars/";
+    private const string AvatarSources = "Assets/Art/Avatars/";
     private const string SettingsFolder = "Assets/Settings";
 
     [MenuItem("Bomb Arena/Set Up Palace Look")]
@@ -28,6 +30,79 @@ public static class PalaceSetup
         EnsureMaterials();
         AssetDatabase.SaveAssets();
         BakeSprites();
+        BakeAvatars();
+    }
+
+    /// <summary>
+    /// Cuts the avatar pictures in Assets/Art/Avatars into round portraits with a gold ring (see
+    /// docs/art/avatar-prompts.md). The pictures are one sheet of all ten (sheet.png: 5 columns by 2 rows, in
+    /// PlayerAvatars.Keys order) and/or one file per avatar named by its key, which wins over its sheet cell.
+    /// An avatar with neither gets a plain disc in its colour.
+    /// </summary>
+    private static void BakeAvatars()
+    {
+        const int size = 256;
+        Directory.CreateDirectory(Avatars);
+        var gold = new Color(0.91f, 0.76f, 0.38f);
+        var sheet = LoadSource("sheet");
+        for (int i = 0; i < PlayerAvatars.Count; i++)
+        {
+            var own = LoadSource(PlayerAvatars.Keys[i]);
+            var source = own ?? sheet;
+            // The part of the source this avatar takes: the whole picture, or its cell of the sheet (row 0 on top).
+            float cw = source == null ? 0 : (own != null ? source.width : source.width / 5f);
+            float ch = source == null ? 0 : (own != null ? source.height : source.height / 2f);
+            float cx = own != null ? 0 : i % 5 * cw;
+            float cy = source == null ? 0 : (own != null ? 0 : (1 - i / 5) * ch);
+            if (own == null) { cx += cw * 0.03f; cy += ch * 0.03f; cw *= 0.94f; ch *= 0.94f; } // skip any lines between cells
+            // A square across the middle of that part; in a tall one, centred 38% of the way down, where a headshot's
+            // face is (so hair and chin both fit).
+            float side = Mathf.Min(cw, ch);
+            float x0 = cx + (cw - side) / 2f;
+            float y0 = Mathf.Clamp(cy + ch * 0.62f - side / 2f, cy, cy + ch - side);
+            var back = PlayerAvatars.Backdrop(i);
+            var portrait = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var px = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x + 0.5f) / size - 0.5f, dy = (y + 0.5f) / size - 0.5f, r = Mathf.Sqrt(dx * dx + dy * dy);
+                var c = Color.Lerp(back * 1.15f, back * 0.6f, Mathf.Clamp01(r * 2f - dy)); // lit from above
+                if (source != null)
+                {
+                    var p = source.GetPixelBilinear((x0 + (x + 0.5f) / size * side) / source.width,
+                        (y0 + (y + 0.5f) / size * side) / source.height);
+                    c = Color.Lerp(c, new Color(p.r, p.g, p.b, 1f), p.a);
+                }
+                float ring = Mathf.Clamp01(1f - Mathf.Abs(r - 0.475f) * size / 3f);
+                c = Color.Lerp(c, gold, ring);
+                c.a = Mathf.Clamp01((0.5f - r) * size); // round, with a soft edge
+                px[y * size + x] = c;
+            }
+            portrait.SetPixels(px);
+            portrait.Apply();
+            var path = Avatars + "avatar-" + i + ".png";
+            if (!File.Exists(path) || VisiblyDifferent(portrait, File.ReadAllBytes(path))) File.WriteAllBytes(path, portrait.EncodeToPNG());
+            Object.DestroyImmediate(portrait);
+            if (own != null) Object.DestroyImmediate(own);
+        }
+        if (sheet != null) Object.DestroyImmediate(sheet);
+        AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+    }
+
+    /// <summary>Reads a hero picture straight from disk (so its import settings don't matter), or null if there's none.</summary>
+    private static Texture2D LoadSource(string key)
+    {
+        foreach (var ext in new[] { ".png", ".jpg", ".jpeg" })
+        {
+            var path = AvatarSources + key + ext;
+            if (!File.Exists(path)) continue;
+            var t = new Texture2D(2, 2, TextureFormat.RGBA32, true);
+            if (t.LoadImage(File.ReadAllBytes(path))) return t;
+            Debug.LogError("Avatar picture can't be read (use PNG or JPG): " + path);
+            Object.DestroyImmediate(t);
+        }
+        return null;
     }
 
     /// <summary>
@@ -38,9 +113,10 @@ public static class PalaceSetup
     {
         EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
         Directory.CreateDirectory(Sprites);
-        foreach (var (key, build, top) in PalaceSprites.All())
+        foreach (var (key, build, top, theme) in PalaceSprites.All())
         {
-            var texture = PalaceSprites.Render(build, top);
+            Texture2D texture;
+            using (theme.Use()) texture = PalaceSprites.Render(build, top);
             var path = Sprites + key + ".png";
             if (!File.Exists(path) || VisiblyDifferent(texture, File.ReadAllBytes(path))) File.WriteAllBytes(path, texture.EncodeToPNG());
             Object.DestroyImmediate(texture);
@@ -115,8 +191,25 @@ public static class PalaceSetup
     private static void EnsureMaterials()
     {
         Directory.CreateDirectory(Materials);
-        foreach (var name in new[] { "Floor", "Marble", "Stone", "Wood", "Gold", "Carpet" })
+        // Palace, then the fortress, garden and frozen citadel themes (ArenaTheme), each from its own textures.
+        foreach (var name in new[] { "Floor", "Marble", "Stone", "Wood", "Gold", "Carpet",
+                     "Paving", "Brick", "Earth", "Lawn", "Rock", "Plaster", "Roof", "Bamboo", "Pebbles", "Ice", "Snow" })
             SetUp(Lit(name), name);
+        // Variants built from other textures: bronze and silver from the gold's surface, and red lacquer with the
+        // wood's grain under the marble's polish.
+        SetUp(Lit("Bronze"), "Gold", "Gold", "Gold", new Color(0.85f, 0.55f, 0.34f));
+        SetUp(Lit("Silver"), null, "Gold", "Gold", new Color(0.86f, 0.89f, 0.95f));
+        SetUp(Lit("Lacquer"), "Wood", "Wood", "Marble", new Color(0.72f, 0.1f, 0.08f));
+
+        // The bombers' cartoon characters (Kenney's Mini Characters) all share one colour-swatch texture.
+        var character = Lit("Character");
+        character.SetTexture("_BaseMap", Load(Root + "/Characters/colormap.png"));
+        character.SetTexture("_BumpMap", null);
+        character.SetTexture("_MetallicGlossMap", null);
+        character.SetFloat("_Metallic", 0f);
+        character.SetFloat("_Smoothness", 0.15f);
+        character.SetColor("_BaseColor", Color.white);
+        Finish(character);
 
         // Plain glossy and matte surfaces, tinted per use at runtime (same shader variant, so nothing is stripped).
         var glossy = Lit("Glossy");
@@ -161,14 +254,17 @@ public static class PalaceSetup
 
     private static Material Lit(string name) => Get(Materials + name + ".mat", "Universal Render Pipeline/Lit");
 
-    private static void SetUp(Material m, string name)
+    private static void SetUp(Material m, string name) => SetUp(m, name, name, name, Color.white);
+
+    /// <summary>A textured material: colour, normal and metallic/smoothness maps from the named sets (no colour map: plain).</summary>
+    private static void SetUp(Material m, string colour, string normal, string surface, Color tint)
     {
-        m.SetTexture("_BaseMap", Load(Textures + name + "_Color.jpg"));
-        m.SetTexture("_BumpMap", Load(Textures + name + "_Normal.jpg"));
+        m.SetTexture("_BaseMap", colour == null ? null : Load(Textures + colour + "_Color.jpg"));
+        m.SetTexture("_BumpMap", Load(Textures + normal + "_Normal.jpg"));
         m.SetFloat("_BumpScale", 1f);
-        m.SetTexture("_MetallicGlossMap", Load(Textures + name + "_MetallicSmoothness.png"));
+        m.SetTexture("_MetallicGlossMap", Load(Textures + surface + "_MetallicSmoothness.png"));
         m.SetFloat("_Smoothness", 1f); // scales the map's smoothness
-        m.SetColor("_BaseColor", Color.white);
+        m.SetColor("_BaseColor", tint);
         Finish(m);
     }
 
@@ -206,12 +302,37 @@ public static class PalaceSetup
     }
 }
 
-/// <summary>Import settings for the palace textures: normal maps as normal maps, packed maps as linear data.</summary>
+/// <summary>
+/// Import settings for the palace textures (normal maps as normal maps, packed maps as linear data) and the bombers'
+/// character models.
+/// </summary>
 public sealed class PalaceTextureImport : AssetPostprocessor
 {
+    private void OnPreprocessModel()
+    {
+        if (!assetPath.Contains("/Resources/Palace/Characters/")) return;
+        // Legacy animation: the game plays the clips by name (idle, walk, sprint) with no animator assets. The
+        // material comes from PalaceSetup (Materials/Character), so none is imported.
+        var importer = (ModelImporter)assetImporter;
+        importer.animationType = ModelImporterAnimationType.Legacy;
+        importer.importAnimation = true;
+        importer.materialImportMode = ModelImporterMaterialImportMode.None;
+        importer.importCameras = false;
+        importer.importLights = false;
+    }
+
     private void OnPreprocessTexture()
     {
         var importer = (TextureImporter)assetImporter;
+        if (assetPath.Contains("/Resources/Palace/Characters/"))
+        {
+            // A palette of flat colour swatches: sampled exactly, so neighbouring swatches don't bleed in.
+            importer.mipmapEnabled = false;
+            importer.filterMode = FilterMode.Point;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            return;
+        }
         if (assetPath.Contains("/Resources/Palace/Sprites/"))
         {
             // Sprites rendered by PalaceSetup: one tile per PalaceSprites.PixelsPerUnit, pivot at the tile centre or
@@ -231,6 +352,14 @@ public sealed class PalaceTextureImport : AssetPostprocessor
             settings.spritePivot = PalaceSprites.Pivot(top);
             settings.spriteMeshType = SpriteMeshType.FullRect;
             importer.SetTextureSettings(settings);
+            return;
+        }
+        if (assetPath.Contains("/Resources/Palace/Avatars/"))
+        {
+            importer.mipmapEnabled = true;
+            importer.alphaIsTransparency = true;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Trilinear;
             return;
         }
         if (!assetPath.Contains("/Resources/Palace/Textures/")) return;
