@@ -17,6 +17,8 @@ public static class PalaceSetup
     private const string Textures = Root + "/Textures/";
     private const string Materials = Root + "/Materials/";
     private const string Sprites = Root + "/Sprites/";
+    private const string Avatars = Root + "/Avatars/";
+    private const string AvatarSources = "Assets/Art/Avatars/";
     private const string SettingsFolder = "Assets/Settings";
 
     [MenuItem("Bomb Arena/Set Up Palace Look")]
@@ -28,6 +30,67 @@ public static class PalaceSetup
         EnsureMaterials();
         AssetDatabase.SaveAssets();
         BakeSprites();
+        BakeAvatars();
+    }
+
+    /// <summary>
+    /// Cuts the hero pictures in Assets/Art/Avatars (HeroAvatars.Keys, PNG or JPG; see docs/art/avatar-prompts.md) into
+    /// round portraits with a gold ring. A hero without a picture gets a plain disc in its kingdom colour.
+    /// </summary>
+    private static void BakeAvatars()
+    {
+        const int size = 256;
+        Directory.CreateDirectory(Avatars);
+        var gold = new Color(0.91f, 0.76f, 0.38f);
+        for (int i = 0; i < HeroAvatars.Count; i++)
+        {
+            var source = LoadSource(HeroAvatars.Keys[i]);
+            var back = HeroAvatars.Backdrop(i);
+            // The middle square of the picture (the top square of a tall one, where the face is).
+            int side = source == null ? 0 : Mathf.Min(source.width, source.height);
+            float x0 = source == null ? 0 : (source.width - side) / 2f;
+            float y0 = source == null ? 0 : source.height - side;
+            var portrait = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var px = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x + 0.5f) / size - 0.5f, dy = (y + 0.5f) / size - 0.5f, r = Mathf.Sqrt(dx * dx + dy * dy);
+                var c = Color.Lerp(back * 1.15f, back * 0.6f, Mathf.Clamp01(r * 2f - dy)); // lit from above
+                if (source != null)
+                {
+                    var p = source.GetPixelBilinear((x0 + (x + 0.5f) / size * side) / source.width,
+                        (y0 + (y + 0.5f) / size * side) / source.height);
+                    c = Color.Lerp(c, new Color(p.r, p.g, p.b, 1f), p.a);
+                }
+                float ring = Mathf.Clamp01(1f - Mathf.Abs(r - 0.475f) * size / 3f);
+                c = Color.Lerp(c, gold, ring);
+                c.a = Mathf.Clamp01((0.5f - r) * size); // round, with a soft edge
+                px[y * size + x] = c;
+            }
+            portrait.SetPixels(px);
+            portrait.Apply();
+            var path = Avatars + "avatar-" + i + ".png";
+            if (!File.Exists(path) || VisiblyDifferent(portrait, File.ReadAllBytes(path))) File.WriteAllBytes(path, portrait.EncodeToPNG());
+            Object.DestroyImmediate(portrait);
+            if (source != null) Object.DestroyImmediate(source);
+        }
+        AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+    }
+
+    /// <summary>Reads a hero picture straight from disk (so its import settings don't matter), or null if there's none.</summary>
+    private static Texture2D LoadSource(string key)
+    {
+        foreach (var ext in new[] { ".png", ".jpg", ".jpeg" })
+        {
+            var path = AvatarSources + key + ext;
+            if (!File.Exists(path)) continue;
+            var t = new Texture2D(2, 2, TextureFormat.RGBA32, true);
+            if (t.LoadImage(File.ReadAllBytes(path))) return t;
+            Debug.LogError("Avatar picture can't be read: " + path);
+            Object.DestroyImmediate(t);
+        }
+        return null;
     }
 
     /// <summary>
@@ -231,6 +294,14 @@ public sealed class PalaceTextureImport : AssetPostprocessor
             settings.spritePivot = PalaceSprites.Pivot(top);
             settings.spriteMeshType = SpriteMeshType.FullRect;
             importer.SetTextureSettings(settings);
+            return;
+        }
+        if (assetPath.Contains("/Resources/Palace/Avatars/"))
+        {
+            importer.mipmapEnabled = true;
+            importer.alphaIsTransparency = true;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Trilinear;
             return;
         }
         if (!assetPath.Contains("/Resources/Palace/Textures/")) return;

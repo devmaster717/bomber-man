@@ -174,8 +174,8 @@ public sealed class RoundView : MonoBehaviour
             bool alive = Game.Bombers[i].Alive;
             var old = GUI.color;
             GUI.color = new Color(1f, 1f, 1f, alive ? 1f : 0.4f);
-            GUI.DrawTexture(new Rect(x, u, 7 * u, 7 * u), PlaceholderSprites.Avatar(Players[i].Avatar).texture, ScaleMode.ScaleToFit);
-            GUI.DrawTexture(new Rect(x + 7.5f * u, 2 * u, 5 * u, 5 * u), PlaceholderSprites.Bomber(i).texture, ScaleMode.ScaleToFit);
+            GUI.DrawTexture(new Rect(x, u, 7 * u, 7 * u), HeroAvatars.Portrait(Players[i].Avatar), ScaleMode.ScaleToFit);
+            GUI.DrawTexture(new Rect(x + 7.5f * u, 2 * u, 5 * u, 5 * u), PalaceSprites.Bomber(i).texture, ScaleMode.ScaleToFit);
             GUI.Label(new Rect(x + 13 * u, u, 26 * u, 7 * u), Players[i].Nickname + (alive ? "" : "  " + Text.Out), Ui.Small);
             GUI.color = old;
             x += 40 * u;
