@@ -1,43 +1,66 @@
-# Avatar prompts: Three Kingdoms heroes
+# Avatar prompt: Three Kingdoms heroes
 
 The 10 avatars are head-and-shoulders portraits of Three Kingdoms heroes in a modern 3D animated-film style. They're
-generated with an AI image tool (Midjourney, ChatGPT / DALL·E, Ideogram or similar) and imported by the build.
+made with an AI image tool (Midjourney, ChatGPT / DALL·E, Ideogram or similar) as **one picture with all ten in a
+grid**, which also keeps their style consistent. The build cuts the grid into ten round, gold-ringed portraits.
 
 ## How to make them
 
-1. Generate **#0 Liu Bei** first with the prompt below. Keep regenerating until you like the look: this picture sets the
-   style for the rest.
-2. Generate the other nine with the **same style line**, using Liu Bei's picture as the style reference so they match:
-   - Midjourney: add `--sref <Liu Bei image URL> --ar 1:1`
-   - ChatGPT: in the same chat, write "Same art style, lighting and framing as the previous image:" before the prompt.
-   - Ideogram / others: upload Liu Bei's picture as the style or remix reference.
-3. Save each one as a square PNG (1024 × 1024 or larger) named exactly as listed, into `Game/Assets/Art/Avatars/`.
-4. Build (`Tools/Build-Android.ps1`) or run *Bomb Arena > Set Up Palace Look* in Unity. Each picture is cut into a
-   round portrait with a gold ring; missing ones show a plain coloured disc.
+1. Paste the prompt below into the image tool. In Midjourney add `--ar 5:2` at the end; in other tools pick the widest
+   landscape size they offer.
+2. Regenerate until all ten look right and are in the right order (top row left to right, then bottom row).
+3. Save it as `Game/Assets/Art/Avatars/sheet.png` (PNG or JPG; at least 2000 pixels wide is best).
+4. Build (`Tools/Build-Android.ps1`) or run *Bomb Arena > Set Up Palace Look* in Unity.
 
-Tips: the face should fill the middle of the picture with a little space above the head (the circle trims the
-corners). Avoid naming film studios in the prompt: some tools refuse that, and the style words below get the same look.
+To redo one hero without regenerating the whole sheet, save a single square portrait as
+`Game/Assets/Art/Avatars/<file name>.png` using the names in the table; it replaces that hero's cell.
 
-## Style line (paste at the start of every prompt)
+## The prompt
 
-> Stylized 3D animated feature-film character portrait, appealing modern family-animation style, expressive friendly
-> eyes, smooth stylized skin, soft cinematic studio lighting with a warm rim light, head and shoulders, facing the
-> viewer and turned slightly, centred, plain smooth gradient background, square 1:1, no text, no border, no watermark.
+> A character sheet of ten portraits in a grid of exactly 5 columns and 2 rows, all the same size, edge to edge with
+> no gaps, borders, labels or text. Stylized 3D animated feature-film style, appealing modern family-animation look,
+> expressive friendly eyes, smooth stylized skin, soft cinematic studio lighting with a warm rim light. Every portrait
+> is head and shoulders, centred in its tile with a little space above the head, facing the viewer and turned
+> slightly, on its own plain gradient background. Heroes from Romance of the Three Kingdoms, ancient China.
+> Top row, left to right:
+> 1. Liu Bei, kind noble young lord, warm gentle smile, long earlobes, thin black moustache and short beard, topknot
+>    under a small gold crown, jade-green silk robe with gold embroidery, emerald-green background;
+> 2. Guan Yu, proud loyal general, deep red face, long narrow eyes, very long flowing black beard, green cloth
+>    headwrap, green war robe over bronze armour, emerald-green background;
+> 3. Zhang Fei, big fierce but lovable warrior, round face, wide bold eyes, huge grin, bushy spiky black beard, black
+>    headband, dark iron armour with a leopard-fur collar, emerald-green background;
+> 4. Zhuge Liang, brilliant young strategist, calm knowing smile, thin moustache and small goatee, tall black scholar's
+>    cap, white robe with black trim, white crane-feather fan near his chin, emerald-green background;
+> 5. Zhao Yun, handsome brave young general, clean-shaven, heroic smile, shining silver-white armour, white helmet with
+>    a red tassel, emerald-green background.
+> Bottom row, left to right:
+> 6. Cao Cao, clever ambitious warlord, sharp narrow eyes, sly confident smirk, short neat black beard, black
+>    official's hat, navy-blue robe with gold dragon embroidery, royal-blue background;
+> 7. Sun Quan, young confident king, assured smile, green-tinted eyes, short reddish-brown beard, gold crown, crimson
+>    and gold royal robe, crimson-red background;
+> 8. Lü Bu, mightiest warrior, handsome and arrogant grin, ornate golden armour, golden headdress with two long
+>    pheasant tail feathers, royal-purple background;
+> 9. Sun Shangxiang, spirited young warrior princess, bright fearless smile, high bun tied with red ribbons, light red
+>    and gold armour, a bow over her shoulder, crimson-red background;
+> 10. Diaochan, graceful beautiful young woman, gentle sweet smile, elegant hair bun with gold hairpins and pink peony
+>     flowers, pink and lavender silk robe, rose-pink background.
 
-## The 10 heroes
+Tip: avoid naming film studios; some tools refuse that, and the style words above get the same look.
 
-| # | File | Hero | Prompt (after the style line) |
-|---|------|------|-------------------------------|
-| 0 | `0-liubei.png` | Liu Bei (Shu) | Liu Bei from Romance of the Three Kingdoms, a kind and noble young lord of ancient China, warm gentle smile, long earlobes, neat thin black moustache and short beard, black hair in a topknot under a small gold crown, jade-green silk robe with gold embroidery. Deep emerald-green background. |
-| 1 | `1-guanyu.png` | Guan Yu (Shu) | Guan Yu from Romance of the Three Kingdoms, a proud loyal general of ancient China, deep red face, long narrow phoenix eyes, calm confident look, very long flowing black beard down to his chest, green cloth headwrap, green war robe over bronze armour. Deep emerald-green background. |
-| 2 | `2-zhangfei.png` | Zhang Fei (Shu) | Zhang Fei from Romance of the Three Kingdoms, a big fierce but lovable warrior of ancient China, round face, wide bold eyes, huge grin, bushy spiky black beard all around his jaw, black headband, dark iron armour with a black leopard-fur collar. Deep emerald-green background. |
-| 3 | `3-zhugeliang.png` | Zhuge Liang (Shu) | Zhuge Liang from Romance of the Three Kingdoms, a brilliant young strategist of ancient China, calm knowing smile, thin moustache and small goatee, tall black scholar's cap, white robe with black trim, holding a white crane-feather fan near his chin. Deep emerald-green background. |
-| 4 | `4-zhaoyun.png` | Zhao Yun (Shu) | Zhao Yun from Romance of the Three Kingdoms, a handsome brave young general of ancient China, clean-shaven, determined heroic smile, shining silver-white armour, white helmet with a red tassel on top. Deep emerald-green background. |
-| 5 | `5-caocao.png` | Cao Cao (Wei) | Cao Cao from Romance of the Three Kingdoms, a clever ambitious warlord of ancient China, sharp narrow eyes, confident sly smirk, short neat black beard and moustache, black official's hat, dark navy-blue robe with gold dragon embroidery. Deep royal-blue background. |
-| 6 | `6-sunquan.png` | Sun Quan (Wu) | Sun Quan from Romance of the Three Kingdoms, a young confident king of ancient China, friendly assured smile, green-tinted eyes, short reddish-brown beard, hair in a topknot under a gold crown, crimson and gold royal robe. Deep crimson-red background. |
-| 7 | `7-lubu.png` | Lü Bu (neutral) | Lü Bu from Romance of the Three Kingdoms, the mightiest warrior of ancient China, handsome and arrogant, bold confident grin, ornate golden armour, golden headdress with two very long pheasant tail feathers curving up behind him. Deep royal-purple background. |
-| 8 | `8-sunshangxiang.png` | Sun Shangxiang (Wu) | Sun Shangxiang from Romance of the Three Kingdoms, a spirited young warrior princess of ancient China, bright fearless smile, sparkling eyes, dark hair in a high bun tied with red ribbons, light red and gold armour, a bow over her shoulder. Deep crimson-red background. |
-| 9 | `9-diaochan.png` | Diaochan (neutral) | Diaochan from Romance of the Three Kingdoms, a graceful and beautiful young woman of ancient China, gentle sweet smile, elegant hair bun with gold hairpins and pink peony flowers, flowing pink and lavender silk robe. Soft rose-pink background. |
+## Grid order and single-hero file names
+
+| Cell | Hero | Kingdom | File to replace one cell |
+|------|------|---------|--------------------------|
+| Top 1 | Liu Bei | Shu | `0-liubei.png` |
+| Top 2 | Guan Yu | Shu | `1-guanyu.png` |
+| Top 3 | Zhang Fei | Shu | `2-zhangfei.png` |
+| Top 4 | Zhuge Liang | Shu | `3-zhugeliang.png` |
+| Top 5 | Zhao Yun | Shu | `4-zhaoyun.png` |
+| Bottom 1 | Cao Cao | Wei | `5-caocao.png` |
+| Bottom 2 | Sun Quan | Wu | `6-sunquan.png` |
+| Bottom 3 | Lü Bu | none | `7-lubu.png` |
+| Bottom 4 | Sun Shangxiang | Wu | `8-sunshangxiang.png` |
+| Bottom 5 | Diaochan | none | `9-diaochan.png` |
 
 The background colours group the heroes by kingdom: green for Shu, blue for Wei, red for Wu, and purple or pink for
 the two who belong to none.

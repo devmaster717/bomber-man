@@ -34,22 +34,32 @@ public static class PalaceSetup
     }
 
     /// <summary>
-    /// Cuts the hero pictures in Assets/Art/Avatars (HeroAvatars.Keys, PNG or JPG; see docs/art/avatar-prompts.md) into
-    /// round portraits with a gold ring. A hero without a picture gets a plain disc in its kingdom colour.
+    /// Cuts the hero pictures in Assets/Art/Avatars into round portraits with a gold ring (see
+    /// docs/art/avatar-prompts.md). The pictures are either one sheet of all ten (sheet.png: 5 columns by 2 rows, in
+    /// HeroAvatars.Keys order) or one file per hero named by its key; a hero's own file wins over its sheet cell.
+    /// A hero with neither gets a plain disc in its kingdom colour.
     /// </summary>
     private static void BakeAvatars()
     {
         const int size = 256;
         Directory.CreateDirectory(Avatars);
         var gold = new Color(0.91f, 0.76f, 0.38f);
+        var sheet = LoadSource("sheet");
         for (int i = 0; i < HeroAvatars.Count; i++)
         {
-            var source = LoadSource(HeroAvatars.Keys[i]);
+            var own = LoadSource(HeroAvatars.Keys[i]);
+            var source = own ?? sheet;
+            // The part of the source this hero takes: the whole picture, or its cell of the sheet (row 0 on top).
+            float cw = source == null ? 0 : (own != null ? source.width : source.width / 5f);
+            float ch = source == null ? 0 : (own != null ? source.height : source.height / 2f);
+            float cx = own != null ? 0 : i % 5 * cw;
+            float cy = source == null ? 0 : (own != null ? 0 : (1 - i / 5) * ch);
+            if (own == null) { cx += cw * 0.03f; cy += ch * 0.03f; cw *= 0.94f; ch *= 0.94f; } // skip any lines between cells
+            // The middle square of that part (the top square of a tall one, where the face is).
+            float side = Mathf.Min(cw, ch);
+            float x0 = cx + (cw - side) / 2f;
+            float y0 = cy + ch - side;
             var back = HeroAvatars.Backdrop(i);
-            // The middle square of the picture (the top square of a tall one, where the face is).
-            int side = source == null ? 0 : Mathf.Min(source.width, source.height);
-            float x0 = source == null ? 0 : (source.width - side) / 2f;
-            float y0 = source == null ? 0 : source.height - side;
             var portrait = new Texture2D(size, size, TextureFormat.RGBA32, false);
             var px = new Color[size * size];
             for (int y = 0; y < size; y++)
@@ -73,8 +83,9 @@ public static class PalaceSetup
             var path = Avatars + "avatar-" + i + ".png";
             if (!File.Exists(path) || VisiblyDifferent(portrait, File.ReadAllBytes(path))) File.WriteAllBytes(path, portrait.EncodeToPNG());
             Object.DestroyImmediate(portrait);
-            if (source != null) Object.DestroyImmediate(source);
+            if (own != null) Object.DestroyImmediate(own);
         }
+        if (sheet != null) Object.DestroyImmediate(sheet);
         AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
     }
 
@@ -87,7 +98,7 @@ public static class PalaceSetup
             if (!File.Exists(path)) continue;
             var t = new Texture2D(2, 2, TextureFormat.RGBA32, true);
             if (t.LoadImage(File.ReadAllBytes(path))) return t;
-            Debug.LogError("Avatar picture can't be read: " + path);
+            Debug.LogError("Avatar picture can't be read (use PNG or JPG): " + path);
             Object.DestroyImmediate(t);
         }
         return null;
