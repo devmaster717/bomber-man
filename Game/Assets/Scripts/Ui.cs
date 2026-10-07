@@ -5,6 +5,9 @@ using UnityEngine;
 /// Cinzel Decorative for titles and Marcellus for text (both SIL Open Font License, in Resources/Palace/Fonts), and a
 /// gold-latticed navy backdrop for menus. Textures are generated in code.
 /// Call <see cref="Begin"/> at the start of each OnGUI so default controls (boxes, sliders) use the skin too.
+/// Screens lay out on a canvas of <see cref="W"/> x <see cref="H"/> that sits inside the screen's safe area (clear of
+/// notches and rounded corners); on screens squarer than 16:10, such as tablets, it is a centred 16:10 band so wide
+/// layouts never get squeezed.
 /// </summary>
 public static class Ui
 {
@@ -17,19 +20,52 @@ public static class Ui
     private static int _sizedFor;
     private static Font _body, _display;
 
-    public static float U => Screen.height / 100f;
+    /// <summary>The layout canvas in screen (GUI) pixels: the safe area, cut to 16:10 if it is squarer.</summary>
+    public static Rect Canvas
+    {
+        get
+        {
+            var s = Screen.safeArea;
+            var r = new Rect(s.x, Screen.height - s.yMax, s.width, s.height); // safeArea's y runs up, GUI's down
+            const float minAspect = 1.6f;
+            if (r.width / r.height < minAspect)
+            {
+                float h = r.width / minAspect;
+                r = new Rect(r.x, r.y + (r.height - h) / 2f, r.width, h);
+            }
+            return r;
+        }
+    }
 
-    /// <summary>Use the palace skin for this OnGUI pass.</summary>
-    public static void Begin()
+    public static float W => Canvas.width;
+    public static float H => Canvas.height;
+    public static float U => H / 100f;
+
+    /// <summary>
+    /// Use the palace skin for this OnGUI pass and draw on the canvas (its origin is the canvas's corner). Pass false
+    /// to draw in raw screen coordinates (the touch controls, which hit-test real touches).
+    /// </summary>
+    public static void Begin(bool onCanvas = true)
     {
         Ensure();
         GUI.skin = _skin;
+        var c = Canvas;
+        GUI.matrix = onCanvas ? Matrix4x4.Translate(new Vector3(c.x, c.y, 0f)) : Matrix4x4.identity;
+    }
+
+    // Runs a drawing step in raw screen coordinates, e.g. to cover the whole screen.
+    private static void FullScreen(System.Action draw)
+    {
+        var matrix = GUI.matrix;
+        GUI.matrix = Matrix4x4.identity;
+        draw();
+        GUI.matrix = matrix;
     }
 
     private static void Ensure()
     {
-        if (_skin != null && _sizedFor == Screen.height) return;
-        _sizedFor = Screen.height;
+        if (_skin != null && _sizedFor == (int)H) return;
+        _sizedFor = (int)H;
         _body ??= Resources.Load<Font>("Palace/Fonts/Marcellus-Regular");
         _display ??= Resources.Load<Font>("Palace/Fonts/CinzelDecorative-Bold");
         float u = U;
@@ -104,21 +140,34 @@ public static class Ui
     public static void Backdrop()
     {
         Ensure();
-        var screen = new Rect(0, 0, Screen.width, Screen.height);
-        GUI.DrawTexture(screen, Textures.Radial, ScaleMode.StretchToFill);
-        float tile = 9f * U;
-        GUI.DrawTextureWithTexCoords(screen, Textures.Lattice, new Rect(0, 0, Screen.width / tile, Screen.height / tile));
+        FullScreen(() =>
+        {
+            var screen = new Rect(0, 0, Screen.width, Screen.height);
+            GUI.DrawTexture(screen, Textures.Radial, ScaleMode.StretchToFill);
+            float tile = 9f * U;
+            GUI.DrawTextureWithTexCoords(screen, Textures.Lattice, new Rect(0, 0, Screen.width / tile, Screen.height / tile));
+        });
+        // The gold frame follows the canvas, so it stays clear of notches.
         float m = 1.6f * U;
-        Frame(new Rect(m, m, Screen.width - 2 * m, Screen.height - 2 * m), Mathf.Max(2f, 0.3f * U), Gold);
-        Frame(new Rect(m * 1.6f, m * 1.6f, Screen.width - 3.2f * m, Screen.height - 3.2f * m), 1f, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
+        Frame(new Rect(m, m, W - 2 * m, H - 2 * m), Mathf.Max(2f, 0.3f * U), Gold);
+        Frame(new Rect(m * 1.6f, m * 1.6f, W - 3.2f * m, H - 3.2f * m), 1f, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
+    }
+
+    /// <summary>Covers the whole screen in navy at the given opacity (screen transitions).</summary>
+    public static void Fade(float alpha)
+    {
+        var old = GUI.color;
+        GUI.color = new Color(NavyBottom.r, NavyBottom.g, NavyBottom.b, Mathf.Clamp01(alpha));
+        FullScreen(() => GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture));
+        GUI.color = old;
     }
 
     /// <summary>A navy band across the top of the arena behind the HUD text, edged in gold.</summary>
     public static void HudBar(float heightFraction)
     {
         Ensure();
-        float h = Screen.height * heightFraction;
-        GUI.DrawTexture(new Rect(0, 0, Screen.width, h), Textures.HudFade, ScaleMode.StretchToFill);
+        float h = Canvas.y + H * heightFraction;
+        FullScreen(() => GUI.DrawTexture(new Rect(0, 0, Screen.width, h), Textures.HudFade, ScaleMode.StretchToFill));
     }
 
     private static void Frame(Rect r, float thickness, Color c)
@@ -138,10 +187,10 @@ public static class Ui
         Ensure();
         var old = GUI.color;
         GUI.color = new Color(0.01f, 0.02f, 0.05f, 0.65f);
-        GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
+        FullScreen(() => GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture));
         GUI.color = old;
-        float w = Screen.width * widthFraction, h = Screen.height * heightFraction;
-        var r = new Rect((Screen.width - w) / 2, (Screen.height - h) / 2, w, h);
+        float w = W * widthFraction, h = H * heightFraction;
+        var r = new Rect((W - w) / 2, (H - h) / 2, w, h);
         GUI.Box(r, GUIContent.none, _panel);
         return r;
     }

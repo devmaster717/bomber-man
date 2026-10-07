@@ -25,8 +25,10 @@ public sealed class TouchControls : MonoBehaviour
     /// <summary>Button size as a fraction of the default (0.75–1.5).</summary>
     public float Scale { get; set; } = 1f;
 
-    private float Unit => Screen.height * 0.14f * Scale;
-    private float Margin => Screen.height * 0.05f;
+    // Laid out inside the safe area (clear of notches), in GUI coordinates (y down).
+    private static Rect Safe => new Rect(Screen.safeArea.x, Screen.height - Screen.safeArea.yMax, Screen.safeArea.width, Screen.safeArea.height);
+    private float Unit => Safe.height * 0.14f * Scale;
+    private float Margin => Safe.height * 0.05f;
 
     private bool _bombWasDown, _detonateWasDown;
     private int _stickFinger = -2;      // -1 is the mouse; -2 means no finger on the stick
@@ -35,13 +37,13 @@ public sealed class TouchControls : MonoBehaviour
     // Movement controls live on this side; buttons on the other.
     private bool MoveOnLeft => !PadOnRight;
 
-    private float SideX(float xFromEdge, float width, bool left) => left ? xFromEdge : Screen.width - xFromEdge - width;
+    private float SideX(float xFromEdge, float width, bool left) => left ? Safe.x + xFromEdge : Safe.xMax - xFromEdge - width;
 
     // Rects in GUI space (origin top-left).
     private Rect DpadRect(Direction d)
     {
         float s = Unit, m = Margin;
-        float cx = SideX(m + s, s, MoveOnLeft), cy = Screen.height - m - 2 * s;
+        float cx = SideX(m + s, s, MoveOnLeft), cy = Safe.yMax - m - 2 * s;
         return d switch
         {
             Direction.Up => new Rect(cx, cy - s, s, s),
@@ -60,7 +62,7 @@ public sealed class TouchControls : MonoBehaviour
         get
         {
             float size = Unit * 1.6f;
-            return new Rect(SideX(Margin, size, !MoveOnLeft), Screen.height - Margin - size, size, size);
+            return new Rect(SideX(Margin, size, !MoveOnLeft), Safe.yMax - Margin - size, size, size);
         }
     }
 
@@ -128,7 +130,7 @@ public sealed class TouchControls : MonoBehaviour
 
     private void OnGUI()
     {
-        Ui.Begin();
+        Ui.Begin(onCanvas: false);
         // Round, gold-ringed buttons from the palace skin; a copy, since font sizes change here.
         _style ??= new GUIStyle(Ui.Control);
         var old = GUI.color;
@@ -137,7 +139,7 @@ public sealed class TouchControls : MonoBehaviour
         {
             float r = Unit * 1.1f;
             var centre = _stickFinger != -2 ? _stickOrigin
-                : new Vector2(SideX(Margin + r, 0, MoveOnLeft), Screen.height - Margin - r);
+                : new Vector2(SideX(Margin + r, 0, MoveOnLeft), Safe.yMax - Margin - r);
             GUI.color = new Color(1f, 1f, 1f, 0.3f);
             GUI.Box(new Rect(centre.x - r, centre.y - r, 2 * r, 2 * r), GUIContent.none, _style);
             var knob = _stickFinger != -2 ? Vector2.ClampMagnitude(_stickNow - _stickOrigin, r * 0.6f) + _stickOrigin : centre;

@@ -152,4 +152,6 @@ public static class Text
     public const string Nickname = "Nickname";
     public const string Avatar = "Avatar";
     public const string Back = "Back";
+    public const string QuitGame = "Leave Bomb Arena?";
+    public const string Stay = "Stay";
 }

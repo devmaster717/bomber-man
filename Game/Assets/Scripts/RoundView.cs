@@ -173,7 +173,7 @@ public sealed class RoundView : MonoBehaviour
         }
         // Forfeit: leave the round on purpose (the fee stays in the pot).
         if (!Over && Game.Bombers[YourIndex].Alive &&
-            GUI.Button(new Rect(Screen.width - 24 * u, 10 * u, 22 * u, 8 * u), Text.ForfeitButton, Ui.SmallButton))
+            GUI.Button(new Rect(Ui.W - 24 * u, 10 * u, 22 * u, 8 * u), Text.ForfeitButton, Ui.SmallButton))
             Forfeit();
 
         int? waitingFor = _host != null ? (_host.WaitingFor) : _guest.PausedFor;
@@ -189,7 +189,7 @@ public sealed class RoundView : MonoBehaviour
         if (Game.TimeLimitTicks > 0)
         {
             long left = Math.Max(0, (Game.TimeLimitTicks - Game.Tick) / Units.TicksPerSecond);
-            GUI.Label(new Rect(Screen.width - 30 * u, u, 28 * u, 7 * u), Ui.Clock(left), Ui.Label);
+            GUI.Label(new Rect(Ui.W - 30 * u, u, 28 * u, 7 * u), Ui.Clock(left), Ui.Label);
         }
     }
 }

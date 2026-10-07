@@ -35,6 +35,13 @@ public sealed class BattleScreens
 
     /// <summary>True while a round is being played (or its result shown) over the arena.</summary>
     public bool InRound => _step == Step.Playing;
+
+    /// <summary>The Android Back button: leaves the room or the Bluetooth screens; ignored mid-round (use Forfeit).</summary>
+    public void Back()
+    {
+        if (_step == Step.Playing && _round != null && !_round.Over) return;
+        Leave();
+    }
     private string _status;
     private bool _permissionsOk;
 
@@ -180,7 +187,7 @@ public sealed class BattleScreens
 
     public void OnGUI()
     {
-        float w = Screen.width, u = Ui.U;
+        float w = Ui.W, u = Ui.U;
         if (_step == Step.Playing)
         {
             if (_round != null && _round.Over) DrawResult();
@@ -219,7 +226,7 @@ public sealed class BattleScreens
 
     private void DrawMenu()
     {
-        float w = Screen.width, u = Ui.U;
+        float w = Ui.W, u = Ui.U;
         GUI.enabled = _permissionsOk;
         if (GUI.Button(new Rect(w * 0.3f, 25 * u, w * 0.4f, 12 * u), Text.HostRoom, Ui.Button)) Host();
         if (GUI.Button(new Rect(w * 0.3f, 41 * u, w * 0.4f, 12 * u), Text.JoinRoom, Ui.Button)) Scan();
@@ -228,7 +235,7 @@ public sealed class BattleScreens
 
     private void DrawScan()
     {
-        float w = Screen.width, u = Ui.U;
+        float w = Ui.W, u = Ui.U;
         GUI.Label(new Rect(0, 14 * u, w, 7 * u), _bt.Scanning ? Text.LookingForRooms : Text.NearbyPhones, Ui.Label);
         float y = 22 * u;
         // Phones confirmed to run Bomb Arena first, then paired phones, then the rest.
@@ -253,7 +260,7 @@ public sealed class BattleScreens
     /// <summary>The room: every player's avatar and nickname, and the host's settings.</summary>
     private void DrawRoom(System.Collections.Generic.IReadOnlyList<PlayerInfo> players, RoundSettings settings, bool isHost)
     {
-        float w = Screen.width, u = Ui.U;
+        float w = Ui.W, u = Ui.U;
         GUI.Label(new Rect(0, 13 * u, w, 7 * u), isHost ? Text.YourRoom : Text.InRoom, Ui.Label);
         for (int i = 0; i < players.Count; i++)
         {
