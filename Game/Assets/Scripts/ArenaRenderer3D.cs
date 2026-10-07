@@ -112,23 +112,10 @@ public sealed class ArenaRenderer3D : IArenaView
         _camera.clearFlags = CameraClearFlags.SolidColor;
         _camera.backgroundColor = Background;
 
+        // Reflections come from the generated palace hall (PalaceArt.Surroundings). A realtime probe of the arena was
+        // tried: on phones it rendered the empty space above the arena, turning upward-facing gold dark red.
         PalaceArt.Light();
         PalaceArt.Finish(_root, _camera, threeD: true);
-
-        // The polished floor and the gold reflect the arena itself, captured once now it is built.
-        var probe = new GameObject("Reflections").AddComponent<ReflectionProbe>();
-        probe.transform.SetParent(_root, false);
-        probe.transform.position = centre + Vector3.up * 1.2f;
-        probe.mode = ReflectionProbeMode.Realtime;
-        probe.refreshMode = ReflectionProbeRefreshMode.ViaScripting;
-        probe.timeSlicingMode = ReflectionProbeTimeSlicingMode.NoTimeSlicing;
-        probe.size = new Vector3(w + 4f, 8f, h + 4f);
-        probe.boxProjection = true;
-        probe.resolution = 128;
-        probe.hdr = true;
-        probe.clearFlags = ReflectionProbeClearFlags.SolidColor;
-        probe.backgroundColor = new Color(0.3f, 0.12f, 0.08f);
-        probe.RenderProbe();
     }
 
     private Material Own(Material m)

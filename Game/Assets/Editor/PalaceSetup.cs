@@ -1,5 +1,7 @@
 using System.IO;
+using System.Linq;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEditor.Rendering.Universal.ShaderGUI;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -15,6 +17,7 @@ public static class PalaceSetup
     private const string Root = "Assets/Resources/Palace";
     private const string Textures = Root + "/Textures/";
     private const string Materials = Root + "/Materials/";
+    private const string Sprites = Root + "/Sprites/";
     private const string SettingsFolder = "Assets/Settings";
 
     [MenuItem("Bomb Arena/Set Up Palace Look")]
@@ -25,6 +28,26 @@ public static class PalaceSetup
         EnsurePipeline();
         EnsureMaterials();
         AssetDatabase.SaveAssets();
+        BakeSprites();
+    }
+
+    /// <summary>
+    /// Renders the 2D view's sprites from the 3D models (PalaceSprites.All) in a scratch scene and saves them as PNGs;
+    /// a file is only rewritten when its picture changed, so builds don't touch unchanged sprites.
+    /// </summary>
+    private static void BakeSprites()
+    {
+        EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+        Directory.CreateDirectory(Sprites);
+        foreach (var (key, build, top) in PalaceSprites.All())
+        {
+            var texture = PalaceSprites.Render(build, top);
+            var png = texture.EncodeToPNG();
+            Object.DestroyImmediate(texture);
+            var path = Sprites + key + ".png";
+            if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(png)) File.WriteAllBytes(path, png);
+        }
+        AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
     }
 
     private static void EnsurePipeline()
@@ -170,8 +193,29 @@ public sealed class PalaceTextureImport : AssetPostprocessor
 {
     private void OnPreprocessTexture()
     {
-        if (!assetPath.Contains("/Resources/Palace/Textures/")) return;
         var importer = (TextureImporter)assetImporter;
+        if (assetPath.Contains("/Resources/Palace/Sprites/"))
+        {
+            // Sprites rendered by PalaceSetup: one tile per PalaceSprites.PixelsPerUnit, pivot at the tile centre or
+            // (characters and bombs) at the feet.
+            var name = Path.GetFileNameWithoutExtension(assetPath);
+            bool top = !(name.StartsWith("bomb") || name.StartsWith("enemy"));
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.spritePixelsPerUnit = PalaceSprites.PixelsPerUnit;
+            importer.mipmapEnabled = true;
+            importer.alphaIsTransparency = true;
+            importer.wrapMode = TextureWrapMode.Clamp;
+            importer.filterMode = FilterMode.Trilinear;
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            settings.spriteAlignment = (int)SpriteAlignment.Custom;
+            settings.spritePivot = PalaceSprites.Pivot(top);
+            settings.spriteMeshType = SpriteMeshType.FullRect;
+            importer.SetTextureSettings(settings);
+            return;
+        }
+        if (!assetPath.Contains("/Resources/Palace/Textures/")) return;
         importer.mipmapEnabled = true;
         importer.wrapMode = TextureWrapMode.Repeat;
         importer.anisoLevel = 4;
