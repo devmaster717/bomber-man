@@ -140,7 +140,9 @@ public static class Text
     public const string DPad = "D-pad";
     public const string Joystick = "Joystick";
     public static string ButtonSize(int percent) => $"Button size {percent}%";
-    public const string LeftHanded = "Left-handed";
+    public const string PadSide = "Pad side";
+    public const string Left = "Left";
+    public const string Right = "Right";
     public const string View = "View";
     public const string View2D = "2D";
     public const string View3D = "3D";

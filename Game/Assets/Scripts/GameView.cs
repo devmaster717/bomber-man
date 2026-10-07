@@ -44,7 +44,7 @@ public sealed class GameView : MonoBehaviour
     public void ApplySettings(PlayerProfile settings)
     {
         _controls.UseJoystick = settings.UseJoystick;
-        _controls.LeftHanded = settings.LeftHanded;
+        _controls.PadOnRight = settings.PadOnRight;
         _controls.Scale = settings.ButtonScalePercent / 100f;
         if (_renderer == null || _threeD != settings.View3D)
         {

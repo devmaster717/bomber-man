@@ -78,7 +78,8 @@ namespace BombArena.Core
         public bool VibrationOn { get; set; } = true;
         public bool UseJoystick { get; set; }
         public int ButtonScalePercent { get; set; } = 100;
-        public bool LeftHanded { get; set; }
+        /// <summary>Which side the D-pad or joystick sits on; BOMB and DETONATE take the other side.</summary>
+        public bool PadOnRight { get; set; }
         /// <summary>Draw the arena in 3D (default) or in the original flat 2D.</summary>
         public bool View3D { get; set; } = true;
 
@@ -103,7 +104,7 @@ namespace BombArena.Core
             Put("vibration", VibrationOn);
             Put("joystick", UseJoystick);
             Put("buttonScale", ButtonScalePercent);
-            Put("leftHanded", LeftHanded);
+            Put("padSide", PadOnRight ? "Right" : "Left");
             Put("view3d", View3D);
             return sb.ToString();
         }
@@ -152,7 +153,8 @@ namespace BombArena.Core
                     case "vibration": p.VibrationOn = b; break;
                     case "joystick": p.UseJoystick = b; break;
                     case "buttonScale": p.ButtonScalePercent = (int)n; break;
-                    case "leftHanded": p.LeftHanded = b; break;
+                    case "padSide": p.PadOnRight = v == "Right"; break;
+                    case "leftHanded": p.PadOnRight = b; break; // saves before Pad side: left-handed put the pad on the right
                     case "view3d": p.View3D = b; break;
                     default:
                         if (key.StartsWith("stars.") && int.TryParse(key.Substring(6), out int stage))

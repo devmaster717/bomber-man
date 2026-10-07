@@ -366,18 +366,10 @@ public sealed class AppController : MonoBehaviour
         _profile.MusicOn = Toggle(Row(13), Text.Music, _profile.MusicOn);
         _profile.SoundOn = Toggle(Row(22), Text.SoundEffects, _profile.SoundOn);
         _profile.VibrationOn = Toggle(Row(31), Text.Vibration, _profile.VibrationOn);
-        var row = Row(40);
-        GUI.Label(new Rect(row.x, row.y, row.width * 0.4f, row.height), Text.Controls, Ui.Label);
-        // The chosen layout is bright, the other dimmed.
-        var oldColour = GUI.color;
-        GUI.color = _profile.UseJoystick ? new Color(1f, 1f, 1f, 0.45f) : Color.white;
-        if (GUI.Button(new Rect(row.x + row.width * 0.4f, row.y, row.width * 0.3f, row.height), Text.DPad, Ui.Button)) _profile.UseJoystick = false;
-        GUI.color = _profile.UseJoystick ? Color.white : new Color(1f, 1f, 1f, 0.45f);
-        if (GUI.Button(new Rect(row.x + row.width * 0.7f, row.y, row.width * 0.3f, row.height), Text.Joystick, Ui.Button)) _profile.UseJoystick = true;
-        GUI.color = oldColour;
+        _profile.UseJoystick = Choice(Row(40), Text.Controls, Text.DPad, Text.Joystick, _profile.UseJoystick);
         GUI.Label(Row(49, 5), Text.ButtonSize(_profile.ButtonScalePercent), Ui.Small);
         _profile.ButtonScalePercent = Mathf.RoundToInt(GUI.HorizontalSlider(Row(55, 4), _profile.ButtonScalePercent, 75, 150) / 5f) * 5;
-        _profile.LeftHanded = Toggle(Row(60), Text.LeftHanded, _profile.LeftHanded);
+        _profile.PadOnRight = Choice(Row(60), Text.PadSide, Text.Left, Text.Right, _profile.PadOnRight);
 
         // Right column: nickname.
         float rx = w * 0.52f, rw = w * 0.44f;
@@ -386,14 +378,7 @@ public sealed class AppController : MonoBehaviour
         if (PlayerProfile.IsValidNickname(_nicknameDraft)) _profile.Nickname = PlayerProfile.CleanNickname(_nicknameDraft);
 
         // The arena view: the new 3D one or the original flat 2D one.
-        var view = new Rect(rx, 40 * u, rw, 8 * u);
-        GUI.Label(new Rect(view.x, view.y, view.width * 0.4f, view.height), Text.View, Ui.Label);
-        var before = GUI.color;
-        GUI.color = _profile.View3D ? new Color(1f, 1f, 1f, 0.45f) : Color.white;
-        if (GUI.Button(new Rect(view.x + view.width * 0.4f, view.y, view.width * 0.3f, view.height), Text.View2D, Ui.Button)) _profile.View3D = false;
-        GUI.color = _profile.View3D ? Color.white : new Color(1f, 1f, 1f, 0.45f);
-        if (GUI.Button(new Rect(view.x + view.width * 0.7f, view.y, view.width * 0.3f, view.height), Text.View3D, Ui.Button)) _profile.View3D = true;
-        GUI.color = before;
+        _profile.View3D = Choice(new Rect(rx, 40 * u, rw, 8 * u), Text.View, Text.View2D, Text.View3D, _profile.View3D);
 
         // Bottom: avatars the player owns can be chosen (more come from the shop).
         GUI.Label(new Rect(0, 69 * u, w, 5 * u), Text.Avatar, Ui.Small);
@@ -509,6 +494,19 @@ public sealed class AppController : MonoBehaviour
         }
         t.Apply();
         return t;
+    }
+
+    /// <summary>A label and two buttons; the chosen one is bright, the other dimmed. Returns true for the second.</summary>
+    private static bool Choice(Rect r, string label, string first, string second, bool secondChosen)
+    {
+        GUI.Label(new Rect(r.x, r.y, r.width * 0.4f, r.height), label, Ui.Label);
+        var old = GUI.color;
+        GUI.color = secondChosen ? new Color(1f, 1f, 1f, 0.45f) : Color.white;
+        if (GUI.Button(new Rect(r.x + r.width * 0.4f, r.y, r.width * 0.3f, r.height), first, Ui.Button)) secondChosen = false;
+        GUI.color = secondChosen ? Color.white : new Color(1f, 1f, 1f, 0.45f);
+        if (GUI.Button(new Rect(r.x + r.width * 0.7f, r.y, r.width * 0.3f, r.height), second, Ui.Button)) secondChosen = true;
+        GUI.color = old;
+        return secondChosen;
     }
 
     private static bool Toggle(Rect r, string label, bool value)

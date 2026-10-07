@@ -64,7 +64,7 @@ public sealed class RoundView : MonoBehaviour
         var v = new GameObject("Round").AddComponent<RoundView>();
         v._controls = v.gameObject.AddComponent<TouchControls>();
         v._controls.UseJoystick = settings.UseJoystick;
-        v._controls.LeftHanded = settings.LeftHanded;
+        v._controls.PadOnRight = settings.PadOnRight;
         v._controls.Scale = settings.ButtonScalePercent / 100f;
         v._threeD = settings.View3D;
         return v;
