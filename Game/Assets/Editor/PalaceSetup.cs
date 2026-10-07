@@ -55,11 +55,12 @@ public static class PalaceSetup
             float cx = own != null ? 0 : i % 5 * cw;
             float cy = source == null ? 0 : (own != null ? 0 : (1 - i / 5) * ch);
             if (own == null) { cx += cw * 0.03f; cy += ch * 0.03f; cw *= 0.94f; ch *= 0.94f; } // skip any lines between cells
-            // A square across the middle of that part; in a tall one, centred 38% of the way down, where a headshot's
-            // face is (so hair and chin both fit).
-            float side = Mathf.Min(cw, ch);
+            // A square a quarter wider than that part, centred across it and 40% of the way down (where a headshot's
+            // face is), so the round frame shows the whole head, hair to chin. Where the square goes past the part,
+            // its edge pixels are carried outwards: background beside the head, shoulders below.
+            float side = Mathf.Min(cw, ch) * 1.25f;
             float x0 = cx + (cw - side) / 2f;
-            float y0 = Mathf.Clamp(cy + ch * 0.62f - side / 2f, cy, cy + ch - side);
+            float y0 = cy + ch * 0.6f - side / 2f;
             var back = PlayerAvatars.Backdrop(i);
             var portrait = new Texture2D(size, size, TextureFormat.RGBA32, false);
             var px = new Color[size * size];
@@ -70,8 +71,9 @@ public static class PalaceSetup
                 var c = Color.Lerp(back * 1.15f, back * 0.6f, Mathf.Clamp01(r * 2f - dy)); // lit from above
                 if (source != null)
                 {
-                    var p = source.GetPixelBilinear((x0 + (x + 0.5f) / size * side) / source.width,
-                        (y0 + (y + 0.5f) / size * side) / source.height);
+                    float sx = Mathf.Clamp(x0 + (x + 0.5f) / size * side, cx + 0.5f, cx + cw - 0.5f);
+                    float sy = Mathf.Clamp(y0 + (y + 0.5f) / size * side, cy + 0.5f, cy + ch - 0.5f);
+                    var p = source.GetPixelBilinear(sx / source.width, sy / source.height);
                     c = Color.Lerp(c, new Color(p.r, p.g, p.b, 1f), p.a);
                 }
                 float ring = Mathf.Clamp01(1f - Mathf.Abs(r - 0.475f) * size / 3f);

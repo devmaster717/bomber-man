@@ -106,10 +106,10 @@ public static class Previews
         EditorApplication.Exit(0);
     }
 
-    /// <summary>The interface icons (ruby, heart, stars) as Builds/preview-icons.png, on the menu navy.</summary>
+    /// <summary>The interface icons (emerald, heart, stars, padlock) as Builds/preview-icons.png, on the menu navy.</summary>
     public static void IconsBatch()
     {
-        var icons = new[] { Ui.Ruby, Ui.Heart, Ui.Star(true), Ui.Star(false) };
+        var icons = new[] { Ui.Jewel, Ui.Heart, Ui.Star(true), Ui.Star(false), Ui.Lock };
         const int s = 96, pad = 16;
         var sheet = new Texture2D(icons.Length * (s + pad) + pad, s + 2 * pad, TextureFormat.RGBA32, false);
         var navy = new Color(0.07f, 0.11f, 0.22f);

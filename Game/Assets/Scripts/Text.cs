@@ -17,13 +17,12 @@ public static class Text
     public const string Shop = "Shop";
     public const string Settings = "Settings";
     public const string ComingSoon = " (coming soon)";
-    public static string NextLifeIn(string clock) => $"(next in {clock})";
+    public static string NextLifeIn(string clock) => $"({clock})";
     public const string AttemptCutShort = "Your last attempt was cut short, so it cost a life.";
     public const string NoLives = "No lives left. Wait for one to regenerate.";
 
     // Stage select
     public const string ChooseStage = "Choose a stage";
-    public const string Locked = "locked";
     public const string Prev = "< Prev";
     public const string Next = "Next >";
     public const string Home = "Home";
